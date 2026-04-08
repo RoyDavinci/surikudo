@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+	--color-primary: #e60000;
+	--color-primary-dark: #cc0000;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+	/* Colors */
+	--color-primary: #e60000;
+	--color-primary-dark: #cc0000;
+
+	/* Fonts - Mapping Geist and Arvo */
+	--font-sans: var(--font-geist-sans), ui-sans-serif, system-ui;
+	--font-serif: var(--font-arvo), serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Custom Utilities */
+@utility line-clamp-4 {
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+html {
+	scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+	font-family: var(--font-geist-sans), system-ui, sans-serif;
+	-webkit-font-smoothing: antialiased;
+}
+
+.text-primary {
+	color: var(--color-primary);
+}
+
+.bg-primary {
+	background-color: var(--color-primary);
+}
+
+.bg-primary-dark {
+	background-color: var(--color-primary-dark);
+}
+
+.hover\:bg-primary-dark:hover {
+	background-color: var(--color-primary-dark);
+}
+
+.border-primary {
+	border-color: var(--color-primary);
+}
+
+.border-primary\/50 {
+	border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+}
+
+/* Line clamp utility */
+.line-clamp-4 {
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Smooth card hovers */
+* {
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
