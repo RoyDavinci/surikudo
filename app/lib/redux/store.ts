@@ -1,8 +1,17 @@
 import { configureStore } from "@reduxjs/toolkit";
+import authReducer from "./slices/authSlice";
+import bookingsReducer from "./slices/bookingSlice";
+import invoicesReducer from "./slices/invoicesSlice";
+import bookingFlowReducer from "./slices/bookingFlowSlice";
+import studioReducer from "./slices/studioSlice";
 
 export const store = configureStore({
 	reducer: {
-		dummy: (state = {}) => state,
+		auth: authReducer,
+		bookings: bookingsReducer,
+		invoices: invoicesReducer,
+		bookingFlow: bookingFlowReducer,
+		studio: studioReducer,
 	},
 });
 

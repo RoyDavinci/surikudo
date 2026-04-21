@@ -1,29 +1,48 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
-import {
-	fetchAddons,
-	toggleAddon,
-	setPromo,
-	clearPromo,
-	setSpecialNote,
-	createDraftBooking,
-	initializePayment,
-} from "../../lib/redux/slices/bookingFlowSlice";
+
+interface Addon {
+	id: string;
+	name: string;
+	description: string;
+	price: number;
+	unit: string;
+}
+
+const ADDONS: Addon[] = [
+	{
+		id: "engineer",
+		name: "Sound Engineer",
+		description: "On-site professional for your session",
+		price: 60,
+		unit: "hr",
+	},
+	{
+		id: "vocal-booth",
+		name: "Vocal Booth",
+		description: "Dedicated isolation booth add-on",
+		price: 60,
+		unit: "hr",
+	},
+	{
+		id: "livestream",
+		name: "Live Stream Setup",
+		description: "HD Output podcast/video session",
+		price: 40,
+		unit: "hr",
+	},
+];
 
 const VALID_PROMO_CODES: Record<string, number> = {
 	SURIKUDO20: 0.2,
 	STUDIO10: 0.1,
 };
-
-// ─── Dummy Paystack Modal ─────────────────────────────────────────────────────
-
-// ─── StepBar — same as before ─────────────────────────────────────────────────
 
 function StepBar({ step }: { step: number }) {
 	const steps = ["Services", "Date & Time", "Add-ons & Payment"];
@@ -55,162 +74,130 @@ function StepBar({ step }: { step: number }) {
 	);
 }
 
-function AddonsPageInner() {
+function AddonsPage() {
+	const searchParams = useSearchParams();
 	const router = useRouter();
-	const dispatch = useAppDispatch();
 
-	const {
-		selection,
-		selectedDate,
-		selectedSlot,
-		addons,
-		addonsStatus,
-		selectedAddonIds,
-		promoCode,
-		promoDiscount,
-		specialNote,
-		draftBookingId,
-		createStatus,
-		createError,
-		submitStatus,
-		submitError,
-		paystackUrl,
-		initPayStatus,
-		initPayError,
-	} = useAppSelector((state) => state.bookingFlow);
+	const studio = searchParams.get("studio") ?? "";
+	const studioName = searchParams.get("studioName") ?? "";
+	const packageName = searchParams.get("packageName") ?? "";
+	const price = Number(searchParams.get("price") ?? 0);
+	const date = searchParams.get("date") ?? "";
+	const time = searchParams.get("time") ?? "";
+	const endTime = searchParams.get("endTime") ?? "";
+	const unit = searchParams.get("unit") ?? "";
 
-	console.log(
-		"addons",
-		selection,
-		"status",
-		createStatus,
-		"id",
-		draftBookingId,
-		"init",
-		initPayStatus,
-	);
-
+	const [addedAddons, setAddedAddons] = useState<Set<string>>(new Set());
 	const [promoInput, setPromoInput] = useState("");
+	const [promoCode, setPromoCode] = useState("");
+	const [promoDiscount, setPromoDiscount] = useState(0);
 	const [promoStatus, setPromoStatus] = useState<"idle" | "valid" | "invalid">(
 		"idle",
 	);
-	// const [showPaystack, setShowPaystack] = useState(false);
+	const [specialNote, setSpecialNote] = useState("");
 
-	// Guard
-	useEffect(() => {
-		if (!selection) router.replace("/#studios");
-	}, [selection, router]);
-
-	// Fetch addons on mount
-	useEffect(() => {
-		if (addonsStatus === "idle") dispatch(fetchAddons());
-	}, [addonsStatus, dispatch]);
-
-	// When draft is created, open Paystack
-	// useEffect(() => {
-	// 	if (createStatus === "succeeded" && draftBookingId) {
-	// 		setShowPaystack(true);
-	// 	}
-	// }, [createStatus, draftBookingId]);
-
-	// When submit succeeds, navigate to confirm
-	useEffect(() => {
-		if (submitStatus === "succeeded") {
-			router.push("/book/confirm");
-		}
-	}, [submitStatus, router]);
+	const toggleAddon = (id: string) => {
+		setAddedAddons((prev) => {
+			const next = new Set(prev);
+			next.has(id) ? next.delete(id) : next.add(id);
+			return next;
+		});
+	};
 
 	const handleApplyPromo = () => {
 		const discount = VALID_PROMO_CODES[promoInput.toUpperCase()];
 		if (discount) {
-			dispatch(setPromo({ code: promoInput.toUpperCase(), discount }));
+			setPromoCode(promoInput.toUpperCase());
+			setPromoDiscount(discount);
 			setPromoStatus("valid");
 		} else {
 			setPromoStatus("invalid");
-			dispatch(clearPromo());
+			setPromoDiscount(0);
 		}
 	};
 
-	const selectedAddons = addons.filter((a) => selectedAddonIds.includes(a.id));
-	const addonsTotal = selectedAddons.reduce((s, a) => s + a.price, 0);
-	const subtotal = (selection?.price ?? 0) + addonsTotal;
+	const addonsTotal = ADDONS.filter((a) => addedAddons.has(a.id)).reduce(
+		(sum, a) => sum + a.price,
+		0,
+	);
+	const subtotal = price + addonsTotal;
 	const discountAmount = Math.round(subtotal * promoDiscount);
 	const total = subtotal - discountAmount;
+	const addonNames = ADDONS.filter((a) => addedAddons.has(a.id))
+		.map((a) => a.name)
+		.join(", ");
 
-	const handleConfirmAndPay = () => {
-		// Step 1: create draft booking
-		dispatch(createDraftBooking());
+	// Shared params passed forward to both confirm and gift pages
+	const sharedParams = {
+		studio,
+		studioName,
+		packageName,
+		unit,
+		date,
+		time,
+		endTime,
+		price: String(price),
+		total: String(total),
+		addons: addonNames,
+		promoCode,
 	};
 
-	useEffect(() => {
-		if (
-			createStatus === "succeeded" &&
-			draftBookingId &&
-			initPayStatus === "idle"
-		) {
-			dispatch(initializePayment(draftBookingId));
-		}
-	}, [createStatus, draftBookingId, initPayStatus, dispatch]);
+	const handleConfirm = () => {
+		router.push(
+			`/book/confirm?${new URLSearchParams(sharedParams).toString()}`,
+		);
+	};
 
-	// Step 2: payment initialized → redirect to Paystack
-	useEffect(() => {
-		if (initPayStatus === "succeeded" && paystackUrl) {
-			window.location.href = paystackUrl; // full redirect to Paystack hosted page
-		}
-	}, [initPayStatus, paystackUrl]);
-
-	const isLoading = createStatus === "loading" || initPayStatus === "loading";
-
-	const formattedDate = selectedDate
-		? new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-				month: "long",
-				day: "numeric",
-				year: "numeric",
-			})
-		: null;
+	const giftHref = `/book/gift?${new URLSearchParams(sharedParams).toString()}`;
+	const backHref = `/book/date-time?studio=${studio}&studioName=${encodeURIComponent(studioName)}&packageName=${encodeURIComponent(packageName)}&price=${price}&unit=${encodeURIComponent(unit)}`;
 
 	return (
 		<main className='min-h-screen bg-gray-50'>
-			{/* Nav */}
 			<nav className='bg-white border-b border-gray-100 px-6 py-3'>
 				<div className='max-w-5xl mx-auto flex items-center justify-between'>
 					<div className='flex items-center gap-2 text-sm text-gray-500'>
+						{/* Back button replaces red dot */}
 						<IconButton
 							onClick={() => router.back()}
 							size='small'
 							className='!p-0'
 						>
-							<ArrowBackIcon fontSize='small' sx={{ color: "#dc2626" }} />
+							<ArrowBackIcon
+								fontSize='small'
+								sx={{ color: "#dc2626" }} // red arrow
+							/>
 						</IconButton>
-						<Link href='/#studios'>Studio</Link>
+
+						<Link
+							href={`/studios/${studio}`}
+							className='hover:text-gray-900 transition-colors'
+						>
+							Studio
+						</Link>
+
 						<span>/</span>
-						<span className='text-gray-900 font-medium'>
-							{selection?.studioName}
-						</span>
+
+						<span className='text-gray-900 font-medium'>{studioName}</span>
 					</div>
+
 					<StepBar step={3} />
 				</div>
 			</nav>
 
 			<div className='max-w-5xl mx-auto px-6 py-10'>
 				<h1 className='text-3xl font-black text-gray-950 mb-10'>
-					Add-ons & Payment
+					Add-ons &amp; Payment
 				</h1>
 
 				<div className='grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8'>
-					{/* Left */}
+					{/* ── Left ──────────────────────────────────────────── */}
 					<div className='flex flex-col gap-8'>
 						{/* Add-ons */}
 						<section>
 							<h2 className='font-bold text-gray-900 mb-4'>Optional Add-ons</h2>
-							{addonsStatus === "loading" && (
-								<p className='text-sm text-gray-400 animate-pulse'>
-									Loading add-ons…
-								</p>
-							)}
 							<div className='flex flex-col gap-3'>
-								{addons.map((addon) => {
-									const added = selectedAddonIds.includes(addon.id);
+								{ADDONS.map((addon) => {
+									const added = addedAddons.has(addon.id);
 									return (
 										<div
 											key={addon.id}
@@ -229,10 +216,22 @@ function AddonsPageInner() {
 													${addon.price}/{addon.unit}
 												</span>
 												<button
-													onClick={() => dispatch(toggleAddon(addon.id))}
-													className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded transition-all ${added ? "bg-gray-900 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
+													onClick={() => toggleAddon(addon.id)}
+													className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded transition-all ${
+														added
+															? "bg-gray-900 text-white"
+															: "bg-red-600 hover:bg-red-700 text-white"
+													}`}
 												>
-													{added ? "✓ Added" : "+ Add"}
+													{added ? (
+														<>
+															<span>✓</span> Added
+														</>
+													) : (
+														<>
+															<span>+</span> Add
+														</>
+													)}
 												</button>
 											</div>
 										</div>
@@ -248,14 +247,14 @@ function AddonsPageInner() {
 							</h2>
 							<textarea
 								value={specialNote}
-								onChange={(e) => dispatch(setSpecialNote(e.target.value))}
+								onChange={(e) => setSpecialNote(e.target.value)}
 								placeholder='e.g Vintage plate reverb, two vocal mics, low monitor volume...'
 								rows={4}
 								className='w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-red-400 transition-colors resize-none'
 							/>
 						</section>
 
-						{/* Promo */}
+						{/* Promo Code */}
 						<section>
 							<h2 className='font-bold text-gray-900 mb-3'>Promo Code</h2>
 							<div className='flex gap-2'>
@@ -267,42 +266,38 @@ function AddonsPageInner() {
 										setPromoStatus("idle");
 									}}
 									placeholder='Enter promo code'
-									className='flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400'
+									className='flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 transition-colors'
 								/>
 								<button
 									onClick={handleApplyPromo}
-									className='bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm'
+									className='bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors'
 								>
 									Apply
 								</button>
 							</div>
 							{promoStatus === "valid" && (
-								<p className='mt-2 text-xs text-green-600'>
-									✓ Code valid — {Math.round(promoDiscount * 100)}% discount
-									applied
+								<p className='mt-2 text-xs text-green-600 flex items-center gap-1'>
+									<span>✓</span> Code valid — {Math.round(promoDiscount * 100)}%
+									discount applied
 								</p>
 							)}
 							{promoStatus === "invalid" && (
-								<p className='mt-2 text-xs text-red-500'>
-									✕ Invalid promo code
+								<p className='mt-2 text-xs text-red-500 flex items-center gap-1'>
+									<span>✕</span> Invalid promo code
 								</p>
 							)}
 						</section>
 
-						{/* Error states */}
-						{createError && (
-							<p className='text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3'>
-								{createError}
-							</p>
-						)}
-						{submitError && (
-							<p className='text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3'>
-								{submitError}
-							</p>
-						)}
+						{/* Gift link — navigates to /book/gift page */}
+						<Link
+							href={giftHref}
+							className='flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors'
+						>
+							Book this session as a Gift 🎁
+						</Link>
 					</div>
 
-					{/* Right — Order Summary */}
+					{/* ── Right — Order Summary ─────────────────────────── */}
 					<div className='flex flex-col gap-4'>
 						<div className='bg-white border border-gray-200 rounded-xl p-6'>
 							<h3 className='font-black text-gray-900 text-lg mb-5'>
@@ -311,26 +306,29 @@ function AddonsPageInner() {
 							<div className='flex flex-col gap-3 text-sm'>
 								<div className='flex justify-between'>
 									<span className='text-gray-500'>
-										{selection?.studioName} ({selection?.name})
+										{studioName} ({packageName})
 									</span>
-									<span className='font-semibold'>${selection?.price}</span>
+									<span className='font-semibold text-gray-900'>${price}</span>
 								</div>
-								{selectedAddons.map((a) => (
+								{ADDONS.filter((a) => addedAddons.has(a.id)).map((a) => (
 									<div key={a.id} className='flex justify-between'>
 										<span className='text-gray-500'>{a.name} add-on</span>
-										<span className='font-semibold'>${a.price}</span>
+										<span className='font-semibold text-gray-900'>
+											${a.price}
+										</span>
 									</div>
 								))}
-								{promoCode && (
+								{promoStatus === "valid" && (
 									<div className='flex justify-between'>
 										<button
 											onClick={() => {
-												dispatch(clearPromo());
 												setPromoStatus("idle");
+												setPromoDiscount(0);
+												setPromoCode("");
 											}}
 											className='text-green-600 hover:underline text-left'
 										>
-											Promo ({promoCode})
+											Promo code ({promoCode})
 										</button>
 										<span className='font-semibold text-green-600'>
 											-${discountAmount}
@@ -339,59 +337,45 @@ function AddonsPageInner() {
 								)}
 								<hr className='border-gray-100' />
 								<div className='flex justify-between'>
-									<span className='font-semibold text-gray-700'>Total</span>
+									<span className='text-gray-700 font-semibold'>Total</span>
 									<span className='font-black text-gray-900'>${total}</span>
 								</div>
 							</div>
 						</div>
 
-						{/* Date/time summary */}
-						{selectedDate && (
+						{date && (
 							<div className='bg-white border border-gray-100 rounded-xl p-4 text-xs text-gray-500 flex flex-col gap-1.5'>
 								<div className='flex justify-between'>
 									<span>Date</span>
-									<span className='font-semibold text-gray-700'>
-										{formattedDate}
-									</span>
+									<span className='font-semibold text-gray-700'>{date}</span>
 								</div>
 								<div className='flex justify-between'>
 									<span>Time</span>
 									<span className='font-semibold text-red-600'>
-										{selectedSlot?.label}
+										{time} — {endTime}
 									</span>
 								</div>
 								<div className='flex justify-between'>
 									<span>Duration</span>
-									<span className='font-semibold text-gray-700'>
-										{selection?.unit}
-									</span>
+									<span className='font-semibold text-gray-700'>{unit}</span>
 								</div>
 							</div>
 						)}
 
+						{/* Personal booking — goes straight to confirm */}
 						<button
-							onClick={handleConfirmAndPay}
-							disabled={isLoading}
-							className='w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white font-semibold py-3 px-6 rounded text-sm transition-colors'
+							onClick={handleConfirm}
+							className='w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded text-sm transition-colors flex items-center justify-center gap-2'
 						>
-							{createStatus === "loading"
-								? "Creating booking…"
-								: initPayStatus === "loading"
-									? "Redirecting to payment…"
-									: `Confirm and Pay $${total} →`}
+							Confirm and Pay ${total} →
 						</button>
-						{initPayError && (
-							<p className='text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3'>
-								{initPayError}
-							</p>
-						)}
 
-						<button
-							onClick={() => router.back()}
-							className='text-center text-sm text-gray-400 hover:text-gray-600'
+						<Link
+							href={backHref}
+							className='text-center text-sm text-gray-400 hover:text-gray-600 transition-colors'
 						>
-							← Back to Date & Time
-						</button>
+							← Back to Date &amp; Time
+						</Link>
 					</div>
 				</div>
 			</div>
@@ -408,7 +392,7 @@ export default function AddonsPageWrapper() {
 				</div>
 			}
 		>
-			<AddonsPageInner />
+			<AddonsPage />
 		</Suspense>
 	);
 }

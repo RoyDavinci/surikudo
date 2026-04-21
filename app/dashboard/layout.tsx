@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { logout } from "../lib/redux/slices/authSlice";
 
 const NAV = [
 	{
@@ -115,8 +117,9 @@ export default function DashboardLayout({
 	const pathname = usePathname();
 	const router = useRouter();
 
+	const dispatch = useDispatch();
 	const handleLogout = () => {
-		localStorage.removeItem("userEmail");
+		dispatch(logout());
 		router.push("/login");
 	};
 

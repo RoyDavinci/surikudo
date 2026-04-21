@@ -1,0 +1,151 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+
+const baseUrl = "http://164.92.130.188";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface Invoice {
+	id: string;
+	date: string;
+	desc: string;
+	amount: string;
+	status: string;
+}
+
+interface InvoicesState {
+	list: Invoice[];
+	status: "idle" | "loading" | "succeeded" | "failed";
+	error: string | null;
+}
+
+// ─── Thunks ───────────────────────────────────────────────────────────────────
+
+export const fetchInvoices = createAsyncThunk<
+	Invoice[],
+	void,
+	{ rejectValue: string }
+>("invoices/fetchInvoices", async (_, { rejectWithValue, getState }) => {
+	try {
+		const { auth } = getState() as { auth: { user: { token: string } | null } };
+		const token = auth.user?.token;
+
+		const res = await fetch(
+			`${baseUrl}/api/v2/method/studio_app.api.invoices.get_invoices`,
+			{
+				headers: {
+					Authorization: `token ${token}`,
+					"Content-Type": "application/json",
+				},
+			},
+		);
+
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({}));
+			return rejectWithValue(err.message ?? "Failed to fetch invoices");
+		}
+
+		const data = await res.json();
+		// Adjust mapping once you inspect the real response shape
+		return (data.message ?? []).map((inv: any) => ({
+			id: inv.name,
+			date: inv.posting_date,
+			desc: inv.description ?? inv.items?.[0]?.item_name ?? "-",
+			amount: `$${parseFloat(inv.grand_total ?? 0).toFixed(2)}`,
+			status: inv.status ?? "PAID",
+		}));
+	} catch {
+		return rejectWithValue("Network error — please try again");
+	}
+});
+
+export const fetchInvoiceById = createAsyncThunk<
+	Invoice,
+	string,
+	{ rejectValue: string }
+>("invoices/fetchById", async (invoiceId, { rejectWithValue, getState }) => {
+	try {
+		const { auth } = getState() as { auth: { user: { token: string } | null } };
+		const token = auth.user?.token;
+
+		const res = await fetch(
+			`${baseUrl}/api/v2/method/studio_app.api.invoices.get_invoice?invoice_id=${invoiceId}`,
+			{
+				headers: {
+					Authorization: `token ${token}`,
+					"Content-Type": "application/json",
+				},
+			},
+		);
+
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({}));
+			return rejectWithValue(err.message ?? "Failed to fetch invoice");
+		}
+
+		const data = await res.json();
+		const inv = data.message;
+		return {
+			id: inv.name,
+			date: inv.posting_date,
+			desc: inv.description ?? inv.items?.[0]?.item_name ?? "-",
+			amount: `$${parseFloat(inv.grand_total ?? 0).toFixed(2)}`,
+			status: inv.status ?? "PAID",
+		};
+	} catch {
+		return rejectWithValue("Network error — please try again");
+	}
+});
+
+// ─── Slice ────────────────────────────────────────────────────────────────────
+
+const initialState: InvoicesState = {
+	list: [],
+	status: "idle",
+	error: null,
+};
+
+const invoicesSlice = createSlice({
+	name: "invoices",
+	initialState,
+	reducers: {},
+	extraReducers: (builder) => {
+		builder
+			.addCase(fetchInvoices.pending, (state) => {
+				state.status = "loading";
+				state.error = null;
+			})
+			.addCase(
+				fetchInvoices.fulfilled,
+				(state, action: PayloadAction<Invoice[]>) => {
+					state.status = "succeeded";
+					state.list = action.payload;
+				},
+			)
+			.addCase(fetchInvoices.rejected, (state, action) => {
+				state.status = "failed";
+				state.error = action.payload ?? "Unknown error";
+			})
+
+			.addCase(fetchInvoiceById.pending, (state) => {
+				state.status = "loading";
+				state.error = null;
+			})
+			.addCase(
+				fetchInvoiceById.fulfilled,
+				(state, action: PayloadAction<Invoice>) => {
+					state.status = "succeeded";
+					// Merge into list, replacing if already exists
+					const idx = state.list.findIndex((i) => i.id === action.payload.id);
+					if (idx !== -1) state.list[idx] = action.payload;
+					else state.list.push(action.payload);
+				},
+			)
+			.addCase(fetchInvoiceById.rejected, (state, action) => {
+				state.status = "failed";
+				state.error = action.payload ?? "Unknown error";
+			});
+	},
+});
+
+export default invoicesSlice.reducer;

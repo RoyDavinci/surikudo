@@ -1,5 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
+import {
+	fetchUpcomingBookings,
+	fetchPreviousBookings,
+} from "../../lib/redux/slices/bookingSlice";
 
 type FilterType = "ALL" | "UPCOMING" | "PAST";
 
@@ -50,12 +55,29 @@ const statusStyles: Record<string, { bg: string; color: string }> = {
 export default function BookingsPage() {
 	const [filter, setFilter] = useState<FilterType>("ALL");
 
+	const dispatch = useAppDispatch();
+	const { upcoming, previous, status, error } = useAppSelector(
+		(state) => state.bookings,
+	);
+
 	const filtered = bookings.filter((b) => {
 		if (filter === "ALL") return true;
 		if (filter === "UPCOMING") return b.status === "UPCOMING";
 		if (filter === "PAST") return b.status === "COMPLETE";
 		return true;
 	});
+	useEffect(() => {
+		dispatch(fetchUpcomingBookings());
+		dispatch(fetchPreviousBookings());
+	}, [dispatch]);
+
+	// Log to console so you can inspect the real response shape
+	useEffect(() => {
+		if (status === "succeeded") {
+			console.log("Upcoming:", upcoming);
+			console.log("Previous:", previous);
+		}
+	}, [status, upcoming, previous]);
 
 	return (
 		<div style={{ padding: "40px 48px" }}>

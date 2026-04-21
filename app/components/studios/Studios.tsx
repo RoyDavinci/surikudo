@@ -1,10 +1,9 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Logo from "../../../public/images/b0648d33c960e264e2183aa09cccdd064a30a6c7.png";
-
-const studios = [
+const initialStudios = [
 	{
 		slug: "digital-production",
 		name: "Digital Production",
@@ -68,6 +67,7 @@ const features = [
 
 export default function Studios() {
 	const ref = useRef<HTMLDivElement>(null);
+	const [studios, setStudios] = useState(initialStudios);
 
 	useEffect(() => {
 		const cards = ref.current?.querySelectorAll(".studio-card");
@@ -82,6 +82,61 @@ export default function Studios() {
 		);
 		cards.forEach((c) => observer.observe(c));
 		return () => observer.disconnect();
+	}, []);
+
+	useEffect(() => {
+		const fetchStudios = async () => {
+			try {
+				const baseUrl = "http://164.92.130.188/api/v2";
+
+				const params = new URLSearchParams({
+					fields: JSON.stringify([
+						"name",
+						"service_name",
+						"description",
+						"base_price",
+						"price_per_hour",
+						"duration",
+					]),
+					start: "0",
+					limit: "10",
+				});
+
+				const response = await fetch(
+					`${baseUrl}/document/Studio Service?${params.toString()}`,
+					{
+						method: "GET",
+						headers: {
+							Authorization: "token ab7528f977f3a64:bfa2f842eca1082",
+							"Content-Type": "application/json",
+						},
+					},
+				);
+
+				const result = await response.json();
+
+				console.log("result", result);
+
+				// 🔥 Merge API data into existing UI
+				const updated = initialStudios.map((studio, index) => {
+					const apiItem = result.data[index];
+
+					if (!apiItem) return studio;
+
+					return {
+						...studio,
+						name: apiItem.name,
+						price: `₦${apiItem.base_price.toLocaleString()}`, // formatted naira
+					};
+				});
+
+				setStudios(updated);
+			} catch (error) {
+				console.error("Failed to fetch studios:", error);
+			}
+		};
+
+		fetchStudios();
 	}, []);
 
 	return (
@@ -105,7 +160,7 @@ export default function Studios() {
 					{studios.map((studio, i) => (
 						<Link
 							key={studio.slug}
-							href={`/studios/${studio.slug}`}
+							href={`/studios/${studio.slug}?id=${studio.name}`}
 							className='studio-card border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1 block'
 							style={{ animationDelay: `${i * 0.1}s` }}
 						>

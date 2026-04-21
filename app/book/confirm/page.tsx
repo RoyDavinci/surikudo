@@ -1,54 +1,113 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { useState, Suspense } from "react";
-
-function generateBookingId(): string {
-	const now = new Date();
-	const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-	const num = Math.floor(1000 + Math.random() * 9000);
-	return `SS-${date}-${num}`;
-}
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, Suspense } from "react";
+import { useAppSelector, useAppDispatch } from "../../lib/redux/hooks";
+import {
+	verifyPayment,
+	resetFlow,
+} from "../../lib/redux/slices/bookingFlowSlice";
 
 function BookingConfirmPage() {
-	const searchParams = useSearchParams();
 	const router = useRouter();
+	const dispatch = useAppDispatch();
+	const searchParams = useSearchParams();
 
-	const studioName = searchParams.get("studioName") ?? "";
-	const packageName = searchParams.get("packageName") ?? "";
-	const unit = searchParams.get("unit") ?? "";
-	const date = searchParams.get("date") ?? "";
-	const time = searchParams.get("time") ?? "";
-	const endTime = searchParams.get("endTime") ?? "";
-	const total = searchParams.get("total") ?? "0";
-	const addons = searchParams.get("addons") ?? ""; // comma-separated addon names
-	const email = searchParams.get("email") ?? "";
+	// Paystack appends both; trxref is the canonical one
+	const reference =
+		searchParams.get("trxref") ?? searchParams.get("reference") ?? "";
 
-	const [bookingId] = useState(() => generateBookingId());
+	const { verifyStatus, verifyError, verifiedBooking } = useAppSelector(
+		(state) => state.bookingFlow,
+	);
 
-	const handleDownloadReceipt = () => {
-		// Wire up real PDF receipt generation here
-		alert("Downloading receipt…");
+	// On mount, verify if we have a reference and haven't verified yet
+	useEffect(() => {
+		if (reference && verifyStatus === "idle") {
+			dispatch(verifyPayment(reference));
+		}
+	}, [reference, verifyStatus, dispatch]);
+
+	const handleGoToDashboard = () => {
+		dispatch(resetFlow());
+		router.push("/dashboard/bookings");
 	};
 
-	const handleAddToCalendar = () => {
-		// Wire up Google Calendar / iCal export here
-		alert("Adding to calendar…");
+	// ── Loading ──────────────────────────────────────────────────────────────
+	if (verifyStatus === "idle" || verifyStatus === "loading") {
+		return (
+			<main className='min-h-screen bg-gray-50 flex items-center justify-center flex-col gap-4'>
+				<div className='w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin' />
+				<p className='text-sm text-gray-400 animate-pulse'>
+					Verifying your payment…
+				</p>
+			</main>
+		);
+	}
+
+	// ── Error ────────────────────────────────────────────────────────────────
+	if (verifyStatus === "failed") {
+		return (
+			<main className='min-h-screen bg-gray-50 flex items-center justify-center flex-col gap-4 px-6 text-center'>
+				<div className='w-16 h-16 rounded-full border-2 border-red-300 flex items-center justify-center bg-white text-2xl'>
+					✕
+				</div>
+				<h1 className='text-xl font-black text-gray-900'>
+					Payment Verification Failed
+				</h1>
+				<p className='text-sm text-red-500 max-w-sm'>{verifyError}</p>
+				<div className='flex gap-3 mt-2'>
+					<button
+						onClick={() => router.push("/book/addons")}
+						className='bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded text-sm'
+					>
+						Try Again
+					</button>
+					<button
+						onClick={() => router.push("/")}
+						className='text-sm text-gray-400 hover:text-gray-600 px-4'
+					>
+						Return Home
+					</button>
+				</div>
+			</main>
+		);
+	}
+
+	// ── Success ──────────────────────────────────────────────────────────────
+	// Parse start_datetime "2026-04-18 09:00:00" into readable parts
+	const [datePart, timePart] = (verifiedBooking?.start_datetime ?? " ").split(
+		" ",
+	);
+	const formattedDate = datePart
+		? new Date(datePart + "T00:00:00").toLocaleDateString("en-US", {
+				month: "long",
+				day: "numeric",
+				year: "numeric",
+			})
+		: "—";
+
+	// Format time "09:00:00" → "9:00 AM"
+	const formatTime = (t: string) => {
+		if (!t) return "—";
+		const [hStr, mStr] = t.split(":");
+		let h = parseInt(hStr);
+		const meridiem = h >= 12 ? "PM" : "AM";
+		if (h === 0) h = 12;
+		else if (h > 12) h -= 12;
+		return `${h}:${mStr} ${meridiem}`;
 	};
 
-	const timeDisplay =
-		time && endTime ? `${time.replace(" ", "")}–${endTime}` : "";
-	const dateTimeDisplay =
-		[date, timeDisplay].filter(Boolean).join(" (") + (timeDisplay ? ")" : "");
+	const addonNames = verifiedBooking?.addons?.join(", ") || "None";
 
 	return (
 		<main className='min-h-screen bg-gray-50'>
-			{/* Nav */}
 			<nav className='bg-white border-b border-gray-100 px-6 py-3'>
 				<div className='max-w-3xl mx-auto flex items-center gap-2 text-sm text-gray-500'>
 					<span className='w-3 h-3 bg-red-600 rounded-full inline-block' />
-					<span className='text-gray-900 font-medium'>Studio/{studioName}</span>
+					<span className='text-gray-900 font-medium'>
+						Studio/{verifiedBooking?.studio_name ?? "—"}
+					</span>
 				</div>
 			</nav>
 
@@ -70,7 +129,6 @@ function BookingConfirmPage() {
 					</svg>
 				</div>
 
-				{/* Heading */}
 				<div className='text-center'>
 					<p className='text-red-600 text-xs font-bold uppercase tracking-widest mb-2'>
 						Booking Confirmed
@@ -78,87 +136,54 @@ function BookingConfirmPage() {
 					<h1 className='text-3xl font-black text-gray-950 mb-3'>
 						You are all set!
 					</h1>
-					<p className='text-gray-500 text-sm font-mono'>
-						ID: &nbsp;&nbsp;{bookingId}
-					</p>
+					{verifiedBooking?.booking_id && (
+						<p className='text-gray-500 text-sm font-mono'>
+							ID: {verifiedBooking.booking_id}
+						</p>
+					)}
 				</div>
 
-				{/* Booking details card */}
+				{/* Details */}
 				<div className='w-full bg-white border border-gray-200 rounded-xl p-6'>
 					<div className='flex flex-col gap-3 text-sm'>
 						{[
-							{ label: "Service", value: studioName },
+							{ label: "Service", value: verifiedBooking?.studio_name },
+							{ label: "Package", value: verifiedBooking?.service_name },
+							{ label: "Date", value: formattedDate },
+							{ label: "Time", value: formatTime(timePart) },
 							{
-								label: "Bundle",
-								value: `${packageName}${unit ? ` (${unit})` : ""}`,
+								label: "Duration",
+								value: verifiedBooking?.duration
+									? `${verifiedBooking.duration}h`
+									: "—",
 							},
-							{ label: "Date & Time", value: dateTimeDisplay || "—" },
-							{ label: "Add-ons", value: addons || "None" },
-							{ label: "Paid", value: `$${total}` },
+							{ label: "Add-ons", value: addonNames },
+							{ label: "Promo", value: verifiedBooking?.promo_code || "—" },
 						].map(({ label, value }) => (
 							<div key={label} className='flex justify-between items-start'>
 								<span className='text-gray-400'>{label}</span>
 								<span className='font-bold text-gray-900 text-right max-w-[60%]'>
-									{value}
+									{value ?? "—"}
 								</span>
 							</div>
 						))}
 					</div>
 				</div>
 
-				{/* Status checks */}
-				<div className='w-full flex flex-col gap-2'>
-					{[
-						email ? `Confirmation sent to ${email}` : "Confirmation email sent",
-						"Client account and vault created",
-					].map((msg) => (
-						<div
-							key={msg}
-							className='flex items-center gap-2 text-sm text-gray-600'
-						>
-							<div className='w-5 h-5 rounded-full bg-gray-900 flex items-center justify-center shrink-0'>
-								<svg
-									className='w-3 h-3 text-white'
-									fill='none'
-									stroke='currentColor'
-									strokeWidth={3}
-									viewBox='0 0 24 24'
-								>
-									<path
-										strokeLinecap='round'
-										strokeLinejoin='round'
-										d='M5 13l4 4L19 7'
-									/>
-								</svg>
-							</div>
-							<span>{msg}</span>
-						</div>
-					))}
-				</div>
-
-				{/* Primary CTAs */}
 				<div className='flex gap-3 w-full'>
-					<Link
-						href='/portal'
+					<button
+						onClick={handleGoToDashboard}
 						className='flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded text-sm transition-colors flex items-center justify-center gap-2'
 					>
-						Go to Client Portal →
-					</Link>
+						Go to My Bookings →
+					</button>
 					<button
-						onClick={handleDownloadReceipt}
-						className='flex-1 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-4 rounded text-sm transition-colors flex items-center justify-center gap-2'
+						onClick={() => alert("Downloading receipt…")}
+						className='flex-1 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-4 rounded text-sm transition-colors'
 					>
 						Download Receipt ↓
 					</button>
 				</div>
-
-				{/* Add to calendar */}
-				<button
-					onClick={handleAddToCalendar}
-					className='flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors border border-gray-200 rounded-lg px-5 py-2.5 bg-white hover:border-gray-400'
-				>
-					Add to Calendar +
-				</button>
 			</div>
 		</main>
 	);

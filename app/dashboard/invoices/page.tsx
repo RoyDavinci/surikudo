@@ -1,4 +1,7 @@
 "use client";
+import { useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
+import { fetchInvoices } from "../../lib/redux/slices/invoicesSlice";
 
 const IconDownload = () => (
 	<svg
@@ -71,6 +74,22 @@ const invoices = [
 ];
 
 export default function InvoicesPage() {
+	const dispatch = useAppDispatch();
+	const { list, status, error } = useAppSelector((state) => state.invoices);
+
+	useEffect(() => {
+		dispatch(fetchInvoices());
+	}, [dispatch]);
+
+	// Inspect real response shape before swapping out static data
+	useEffect(() => {
+		if (status === "succeeded") {
+			console.log("Invoices from API:", list);
+		}
+		if (status === "failed") {
+			console.error("Invoices error:", error);
+		}
+	}, [status, list, error]);
 	return (
 		<div style={{ padding: "40px 48px" }}>
 			{/* Page title */}
