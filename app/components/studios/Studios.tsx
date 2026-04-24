@@ -205,7 +205,7 @@ export default function Studios() {
 							: studios.map((studio, i) => (
 									<Link
 										key={studio.apiId}
-										href={`/studios/${studio.slug}?id=${studio.apiId}`}
+										href={`/studios/${studio.slug}?id=${studio.apiId}&price=${studio.price}`}
 										className='studio-card border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1 block'
 										style={{ animationDelay: `${i * 0.1}s` }}
 									>

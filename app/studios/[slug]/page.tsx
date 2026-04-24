@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { IconButton } from "@mui/material";
@@ -27,6 +27,10 @@ interface StudioMeta {
 	gearHighlights: string[];
 	images: { src: string; alt: string }[];
 }
+
+// Source - https://stackoverflow.com/a/51359101
+// Posted by AmerllicA
+// Retrieved 2026-04-24, License - CC BY-SA 4.0
 
 // ─── Dummy studio meta — swap for real API data when available ────────────────
 
@@ -304,10 +308,13 @@ function PackageCard({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function StudioDetailPage() {
-	const params = useParams();
+	const searchParams = useSearchParams();
+
+	const rawPrice = searchParams.get("price") || "0";
+
+	const initialPrice = Number(rawPrice.replace(/[^\d]/g, ""));
 	const router = useRouter();
 	const dispatch = useAppDispatch();
-	const slug = typeof params?.slug === "string" ? params.slug : "";
 
 	const [selectionMode, setSelectionMode] = useState<SelectionMode>("service");
 	const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
@@ -330,7 +337,6 @@ export default function StudioDetailPage() {
 	const resolvedBundleId =
 		selectedBundleId ?? (bundles.length > 0 ? bundles[0].id : null);
 
-	const activeBundle = bundles.find((b) => b.id === resolvedBundleId) ?? null;
 	const [activeImage, setActiveImage] = useState(0);
 
 	useEffect(() => {
@@ -358,16 +364,22 @@ export default function StudioDetailPage() {
 			</div>
 		);
 	}
-
 	const activeService =
-		services.find((s) => s.id === resolvedServiceId) ?? null;
+		services.find((s) => s.id === selectedServiceId) ?? null;
 	const activePackage =
-		packages.find((p) => p.id === resolvedPackageId) ?? null;
+		packages.find((p) => p.id === selectedPackageId) ?? null;
+	const activeBundle = bundles.find((b) => b.id === selectedBundleId) ?? null;
+
+	const displayPrice =
+		(selectionMode === "service" && activeService?.pricePerHour) ??
+		(selectionMode === "package" && activePackage?.price) ??
+		(selectionMode === "bundle" && activeBundle?.price) ??
+		initialPrice;
 
 	const canContinue =
-		(selectionMode === "service" && activeService !== null) ||
-		(selectionMode === "package" && activePackage !== null) ||
-		(selectionMode === "bundle" && activeBundle !== null);
+		(selectionMode === "service" && selectedServiceId !== null) ||
+		(selectionMode === "package" && selectedPackageId !== null) ||
+		(selectionMode === "bundle" && selectedBundleId !== null);
 
 	const handleContinue = () => {
 		if (selectionMode === "service" && activeService) {
@@ -515,7 +527,7 @@ export default function StudioDetailPage() {
 									Starting Rate
 								</p>
 								<p className='font-bold text-gray-900 text-sm'>
-									{STUDIO_META.rate}
+									₦{displayPrice.toLocaleString()} / hr
 								</p>
 							</div>
 						</div>
