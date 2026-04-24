@@ -12,17 +12,18 @@ export default function AuthBootstrap({
 	const user = useAppSelector((s) => s.auth.user);
 
 	useEffect(() => {
+		// Only run once on mount
 		const isNoUser = !user;
 		const isCurrentlyAdmin =
 			user?.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
-		// Refresh/Login admin session if:
-		// 1. No one is logged in.
-		// 2. The person logged in is the admin (refreshing their session).
+		// Only attempt silent login if there's no user OR it's the admin
+		// This only runs once when the app loads
 		if (isNoUser || isCurrentlyAdmin) {
 			dispatch(silentAdminLogin());
 		}
-	}, [dispatch, user]); // Only run on mount
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []); // Empty dependency array - only run once on mount
 
 	return <>{children}</>;
 }
