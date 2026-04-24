@@ -2,11 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
-import { useAppSelector, useAppDispatch } from "../../lib/redux/hooks";
+import { useAppSelector, useAppDispatch } from "../../../lib/redux/hooks";
 import {
 	verifyPayment,
 	resetFlow,
-} from "../../lib/redux/slices/bookingFlowSlice";
+} from "../../../lib/redux/slices/bookingFlowSlice";
 
 function BookingConfirmPage() {
 	const router = useRouter();

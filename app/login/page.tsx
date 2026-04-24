@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAppDispatch, useAppSelector } from "../lib/redux/hooks";
-import { loginUser, clearError } from "../lib/redux/slices/authSlice";
+import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
+import { loginUser, clearError } from "../../lib/redux/slices/authSlice";
 
 export default function LoginPage() {
 	const [email, setEmail] = useState("");

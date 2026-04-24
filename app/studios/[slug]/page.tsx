@@ -5,15 +5,15 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../lib/redux/hooks";
 import {
 	fetchStudioServices,
 	fetchStudioPackages,
 	fetchStudioBundles,
 	StudioService,
 	StudioPackage,
-} from "../../lib/redux/slices/studioSlice";
-import { setSelection } from "../../lib/redux/slices/bookingFlowSlice";
+} from "../../../lib/redux/slices/studioSlice";
+import { setSelection } from "../../../lib/redux/slices/bookingFlowSlice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
