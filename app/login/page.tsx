@@ -21,7 +21,12 @@ export default function LoginPage() {
 
 	// Redirect once login succeeds
 	useEffect(() => {
-		if (user) router.push("/dashboard");
+		const ADMIN_EMAIL = "roy@studiosurikudo.com";
+
+		// Only redirect if there is a user AND it's not the silent admin account
+		if (user && user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+			router.push("/dashboard");
+		}
 	}, [user, router]);
 
 	// Clear stale errors when the user starts typing again

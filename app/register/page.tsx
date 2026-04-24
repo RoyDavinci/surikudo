@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useState, useEffect } from "react";
@@ -20,9 +21,13 @@ export default function RegisterPage() {
 	);
 	const isLoading = registerStatus === "loading";
 
-	// Redirect once registration succeeds
+	// Redirect ONLY if the logged-in user is NOT the admin
 	useEffect(() => {
-		if (user) router.push("/dashboard");
+		const ADMIN_EMAIL = "roy@studiosurikudo.com";
+
+		if (user && user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+			router.push("/dashboard");
+		}
 	}, [user, router]);
 
 	// Clear stale errors when the user starts typing again
