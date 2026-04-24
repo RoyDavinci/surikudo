@@ -21,68 +21,45 @@ export default function StudioStory() {
 	}, []);
 
 	return (
-		<section className='pt-32 pb-24 bg-white'>
-			<div className='max-w-7xl mx-auto px-6'>
-				<div
-					ref={ref}
-					className='story-section grid grid-cols-1 lg:grid-cols-2 gap-16 items-center'
-				>
-					{/* Left */}
-					<div>
-						<h1 className='text-6xl font-black text-gray-950 mb-6 leading-tight'>
-							Our Story
-						</h1>
-						<p className='text-gray-500 text-lg leading-relaxed mb-8 max-w-md'>
-							We bring your creative vision to life with world-class facilities,
-							professional engineers, and seamless digital infrastructure that
-							reflect your artistry and ambition.
-						</p>
-						<div className='flex items-center gap-4'>
-							<Link
-								href='/book'
-								className='bg-primary hover:bg-primary-dark text-white font-semibold px-6 py-3 text-sm transition-colors flex items-center gap-2'
-							>
-								Get started
-							</Link>
-							<Link
-								href='#team'
-								className='text-gray-600 text-sm font-medium hover:text-gray-900 transition-colors'
-							>
-								Explore features
-							</Link>
-						</div>
-					</div>
+		<section className='relative w-full h-[600px] overflow-hidden'>
+			{/* Background image */}
+			<Image src={Logo} alt='Studio' fill className='object-cover' priority />
 
-					{/* Right — studio image */}
-					{/* Right — studio image */}
-					<div className='relative rounded-2xl overflow-hidden shadow-2xl aspect-[4/3]'>
-						<Image
-							src={Logo}
-							alt='Studio'
-							fill
-							className='object-cover'
-							priority
-						/>
+			{/* Dark overlay */}
+			<div className='absolute inset-0 bg-black/55' />
 
-						{/* Overlay (optional - keeps your design vibe) */}
-						<div
-							className='absolute inset-0 opacity-20'
-							style={{
-								backgroundImage: `radial-gradient(circle at 25% 60%, #7c3aed 0%, transparent 55%),
-            radial-gradient(circle at 75% 20%, #1d4ed8 0%, transparent 50%)`,
-							}}
-						/>
-
-						{/* Top LED strip */}
-						<div className='absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500 opacity-80' />
-					</div>
+			{/* Centered content */}
+			<div
+				ref={ref}
+				className='story-section relative z-10 h-full flex flex-col items-center justify-center text-center px-6'
+			>
+				<h1 className='text-5xl font-black text-white mb-5 leading-tight'>
+					Our Story
+				</h1>
+				<p className='text-white/80 text-base leading-relaxed mb-8 max-w-xl'>
+					We bring your interior dreams to life with personalized designs that
+					reflect your style and personality.
+				</p>
+				<div className='flex items-center gap-3'>
+					<Link
+						href='/register'
+						className='bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2.5 text-sm transition-colors rounded'
+					>
+						Get started
+					</Link>
+					<Link
+						href='#team'
+						className='bg-white text-gray-900 font-semibold px-6 py-2.5 text-sm hover:bg-gray-100 transition-colors rounded'
+					>
+						Explore features
+					</Link>
 				</div>
 			</div>
 
 			<style jsx>{`
 				.story-section {
 					opacity: 0;
-					transform: translateY(30px);
+					transform: translateY(20px);
 					transition:
 						opacity 0.8s ease,
 						transform 0.8s ease;

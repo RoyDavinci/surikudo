@@ -18,6 +18,7 @@ export default function ContactForm() {
 		phone: "",
 		notes: "",
 		countryCode: COUNTRY_CODES[0],
+		referenceNumber: "",
 	});
 	const [showCountryDrop, setShowCountryDrop] = useState(false);
 	const [submitted, setSubmitted] = useState(false);
@@ -120,6 +121,21 @@ export default function ContactForm() {
 								{errors.email && (
 									<p className='text-red-500 text-xs mt-1'>{errors.email}</p>
 								)}
+							</div>
+							<div>
+								<label className='block text-sm font-medium text-gray-700 mb-1.5'>
+									Reference Number{" "}
+									<span className='text-gray-400 font-normal'>(Optional)</span>
+								</label>
+								<input
+									type='text'
+									placeholder='E.g. SRK-12345'
+									value={form.referenceNumber}
+									onChange={(e) =>
+										setForm({ ...form, referenceNumber: e.target.value })
+									}
+									className={inputClass("referenceNumber")}
+								/>
 							</div>
 
 							{/* Phone */}

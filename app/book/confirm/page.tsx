@@ -175,7 +175,7 @@ function BookingConfirmPage() {
 						onClick={handleGoToDashboard}
 						className='flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded text-sm transition-colors flex items-center justify-center gap-2'
 					>
-						Go to My Bookings →
+						View My Bookings →
 					</button>
 					<button
 						onClick={() => alert("Downloading receipt…")}

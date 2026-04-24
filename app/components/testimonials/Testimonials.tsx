@@ -113,7 +113,7 @@ export default function Testimonials() {
 					</p>
 					<div className='flex items-center justify-center gap-4 mt-6'>
 						<Link
-							href='/book'
+							href='/register'
 							className='bg-primary hover:bg-primary-dark text-white font-semibold px-5 py-2.5 text-sm transition-colors'
 						>
 							Get started

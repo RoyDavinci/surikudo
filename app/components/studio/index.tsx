@@ -3,7 +3,6 @@ import Footer from "../../components/footer/Footer";
 import FAQ from "../../components/faq/FAQ";
 import StudioStory from "../../components/StudioStory";
 import StudioFigures from "../../components/StudioFigures";
-import StudioTeam from "../../components/StudioTeam";
 
 export const metadata = {
 	title: "Studio — Studio Surikudo",
@@ -17,7 +16,6 @@ export default function StudioPage() {
 			<Navbar />
 			<StudioStory />
 			<StudioFigures />
-			<StudioTeam />
 			<FAQ />
 			<Footer />
 		</main>
