@@ -87,7 +87,7 @@ export default function Studios() {
 	useEffect(() => {
 		const fetchStudios = async () => {
 			try {
-				const baseUrl = "http://164.92.130.188/api/v2";
+				const baseUrl = "https://dev.studiosurikudo.com/api/v2";
 
 				const params = new URLSearchParams({
 					fields: JSON.stringify([

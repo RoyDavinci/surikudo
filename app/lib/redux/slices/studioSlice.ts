@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
-const baseUrl = "http://164.92.130.188";
+const baseUrl = "https://dev.studiosurikudo.com";
 
 const authHeaders = (token: string) => ({
 	Authorization: `Token ${token}`,

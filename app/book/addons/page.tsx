@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
@@ -15,15 +15,19 @@ import {
 	createDraftBooking,
 	initializePayment,
 } from "../../lib/redux/slices/bookingFlowSlice";
+import {
+	loginUser,
+	registerUser,
+	isAdminAccount,
+	clearError,
+} from "../../lib/redux/slices/authSlice";
 
 const VALID_PROMO_CODES: Record<string, number> = {
 	SURIKUDO20: 0.2,
 	STUDIO10: 0.1,
 };
 
-// ─── Dummy Paystack Modal ─────────────────────────────────────────────────────
-
-// ─── StepBar — same as before ─────────────────────────────────────────────────
+// ─── StepBar ──────────────────────────────────────────────────────────────────
 
 function StepBar({ step }: { step: number }) {
 	const steps = ["Services", "Date & Time", "Add-ons & Payment"];
@@ -36,7 +40,13 @@ function StepBar({ step }: { step: number }) {
 				return (
 					<div key={label} className='flex items-center gap-2'>
 						<div
-							className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${active ? "bg-red-600 text-white" : done ? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}
+							className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+								active
+									? "bg-red-600 text-white"
+									: done
+										? "bg-green-500 text-white"
+										: "bg-gray-200 text-gray-400"
+							}`}
 						>
 							{done ? "✓" : n}
 						</div>
@@ -54,6 +64,237 @@ function StepBar({ step }: { step: number }) {
 		</div>
 	);
 }
+
+// ─── Auth Gate Modal ──────────────────────────────────────────────────────────
+
+function AuthModal({
+	onSuccess,
+	onClose,
+}: {
+	onSuccess: () => void;
+	onClose: () => void;
+}) {
+	const dispatch = useAppDispatch();
+	const { status, error, registerStatus, registerError } = useAppSelector(
+		(s) => s.auth,
+	);
+
+	const [tab, setTab] = useState<"login" | "register">("login");
+	const [email, setEmail] = useState("");
+	const [password, setPass] = useState("");
+	const [confirm, setConfirm] = useState("");
+	const [fullName, setFullName] = useState("");
+	const [localErr, setLocalErr] = useState("");
+	const [showPw, setShowPw] = useState(false);
+
+	const switchTab = (next: "login" | "register") => {
+		setTab(next);
+		dispatch(clearError());
+		setLocalErr("");
+	};
+
+	// Capture the status values at the moment the modal mounted
+	const initialStatus = useRef(status);
+	const initialRegisterStatus = useRef(registerStatus);
+
+	// Clear stale errors when modal first opens
+	useEffect(() => {
+		dispatch(clearError());
+	}, [dispatch]);
+
+	// Only call onSuccess if auth succeeded AFTER this modal was shown
+	useEffect(() => {
+		const loginJustSucceeded =
+			status === "succeeded" && initialStatus.current !== "succeeded";
+		const registerJustSucceeded =
+			registerStatus === "succeeded" &&
+			initialRegisterStatus.current !== "succeeded";
+
+		if (loginJustSucceeded || registerJustSucceeded) {
+			onSuccess();
+		}
+	}, [status, registerStatus, onSuccess]);
+
+	// ... rest of modal unchanged
+
+	const handleLogin = (e: React.FormEvent) => {
+		e.preventDefault();
+		setLocalErr("");
+		dispatch(loginUser({ email, password }));
+	};
+
+	const handleRegister = (e: React.FormEvent) => {
+		e.preventDefault();
+		setLocalErr("");
+		if (password !== confirm) {
+			setLocalErr("Passwords do not match");
+			return;
+		}
+		if (password.length < 8) {
+			setLocalErr("Password must be at least 8 characters");
+			return;
+		}
+		dispatch(registerUser({ email, password, full_name: fullName }));
+	};
+
+	const isLoading = status === "loading" || registerStatus === "loading";
+	const sliceError = tab === "login" ? error : registerError;
+	const displayError = localErr || sliceError;
+
+	return (
+		<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4'>
+			<div className='bg-white rounded-2xl shadow-2xl w-full max-w-md p-8'>
+				<button
+					onClick={onClose}
+					className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl leading-none font-light'
+				>
+					✕
+				</button>
+				{/* Header */}
+				<div className='text-center mb-6'>
+					<span className='inline-block w-2 h-2 bg-red-600 rounded-full mb-3' />
+					<h2 className='text-2xl font-black text-gray-950'>
+						{tab === "login" ? "Welcome back" : "Create your account"}
+					</h2>
+					<p className='text-sm text-gray-400 mt-1'>
+						{tab === "login"
+							? "Log in to complete your booking"
+							: "Register to complete your booking"}
+					</p>
+				</div>
+
+				{/* Tab toggle */}
+				<div className='flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-6'>
+					<button
+						onClick={() => switchTab("login")}
+						className={`flex-1 py-2 rounded-md text-sm font-semibold transition-all ${
+							tab === "login"
+								? "bg-white shadow text-gray-900"
+								: "text-gray-500"
+						}`}
+					>
+						Log In
+					</button>
+					<button
+						onClick={() => switchTab("register")}
+						className={`flex-1 py-2 rounded-md text-sm font-semibold transition-all ${
+							tab === "register"
+								? "bg-white shadow text-gray-900"
+								: "text-gray-500"
+						}`}
+					>
+						Register
+					</button>
+				</div>
+
+				{/* Form */}
+				<form
+					onSubmit={tab === "login" ? handleLogin : handleRegister}
+					className='flex flex-col gap-4'
+				>
+					{/* Email */}
+					<div>
+						<label className='text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block'>
+							Email
+						</label>
+						<input
+							type='email'
+							required
+							value={email}
+							onChange={(e) => setEmail(e.target.value)}
+							placeholder='your@email.com'
+							disabled={isLoading}
+							className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
+						/>
+					</div>
+					{tab === "register" && (
+						<div>
+							<label className='text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block'>
+								Full Name
+							</label>
+							<input
+								type='text'
+								required
+								value={fullName}
+								onChange={(e) => setFullName(e.target.value)}
+								placeholder='ysurikido'
+								disabled={isLoading}
+								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
+							/>
+						</div>
+					)}
+
+					{/* Password */}
+					<div>
+						<label className='text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block'>
+							Password
+						</label>
+						<div className='relative'>
+							<input
+								type={showPw ? "text" : "password"}
+								required
+								value={password}
+								onChange={(e) => setPass(e.target.value)}
+								placeholder='••••••••'
+								disabled={isLoading}
+								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50 pr-10 transition-colors'
+							/>
+							<button
+								type='button'
+								onClick={() => setShowPw((v) => !v)}
+								className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs'
+							>
+								{showPw ? "Hide" : "Show"}
+							</button>
+						</div>
+					</div>
+
+					{/* Confirm password — register only */}
+					{tab === "register" && (
+						<div>
+							<label className='text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block'>
+								Confirm Password
+							</label>
+							<input
+								type={showPw ? "text" : "password"}
+								required
+								value={confirm}
+								onChange={(e) => setConfirm(e.target.value)}
+								placeholder='••••••••'
+								disabled={isLoading}
+								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
+							/>
+						</div>
+					)}
+
+					{/* Error */}
+					{displayError && (
+						<p className='text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3'>
+							{displayError}
+						</p>
+					)}
+
+					{/* Submit */}
+					<button
+						type='submit'
+						disabled={isLoading}
+						className='w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg text-sm transition-colors mt-1'
+					>
+						{isLoading
+							? tab === "login"
+								? "Logging in…"
+								: "Creating account…"
+							: tab === "login"
+								? "Log In & Continue →"
+								: "Create Account & Continue →"}
+					</button>
+				</form>
+			</div>
+		</div>
+	);
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 function AddonsPageInner() {
 	const router = useRouter();
@@ -79,24 +320,17 @@ function AddonsPageInner() {
 		initPayError,
 	} = useAppSelector((state) => state.bookingFlow);
 
-	console.log(
-		"addons",
-		selection,
-		"status",
-		createStatus,
-		"id",
-		draftBookingId,
-		"init",
-		initPayStatus,
-	);
+	const { user } = useAppSelector((s) => s.auth);
+
+	// Whether to show the auth gate modal
+	const [showAuthModal, setShowAuthModal] = useState(false);
 
 	const [promoInput, setPromoInput] = useState("");
 	const [promoStatus, setPromoStatus] = useState<"idle" | "valid" | "invalid">(
 		"idle",
 	);
-	// const [showPaystack, setShowPaystack] = useState(false);
 
-	// Guard
+	// Guard — redirect if no selection
 	useEffect(() => {
 		if (!selection) router.replace("/#studios");
 	}, [selection, router]);
@@ -106,19 +340,50 @@ function AddonsPageInner() {
 		if (addonsStatus === "idle") dispatch(fetchAddons());
 	}, [addonsStatus, dispatch]);
 
-	// When draft is created, open Paystack
-	// useEffect(() => {
-	// 	if (createStatus === "succeeded" && draftBookingId) {
-	// 		setShowPaystack(true);
-	// 	}
-	// }, [createStatus, draftBookingId]);
-
-	// When submit succeeds, navigate to confirm
+	// After draft created → initialize payment
 	useEffect(() => {
-		if (submitStatus === "succeeded") {
-			router.push("/book/confirm");
+		if (
+			createStatus === "succeeded" &&
+			draftBookingId &&
+			initPayStatus === "idle"
+		) {
+			dispatch(initializePayment(draftBookingId));
 		}
-	}, [submitStatus, router]);
+	}, [createStatus, draftBookingId, initPayStatus, dispatch]);
+
+	// After payment initialized → save summary + redirect
+	useEffect(() => {
+		if (initPayStatus === "succeeded" && paystackUrl) {
+			sessionStorage.setItem(
+				"bookingSummary",
+				JSON.stringify({
+					booking_id: draftBookingId,
+					studio_name: selection?.studioName,
+					service_name: `${selection?.name} (${selection?.unit})`,
+					start_datetime:
+						selectedDate && selectedSlot
+							? `${selectedDate} ${selectedSlot.start_time}`
+							: "",
+					duration: selection?.durationHours,
+					addons: addons
+						.filter((a) => selectedAddonIds.includes(a.id))
+						.map((a) => a.name),
+					promo_code: promoCode || null,
+				}),
+			);
+			window.location.href = paystackUrl;
+		}
+	}, [
+		initPayStatus,
+		paystackUrl,
+		draftBookingId,
+		selection,
+		selectedDate,
+		selectedSlot,
+		addons,
+		selectedAddonIds,
+		promoCode,
+	]);
 
 	const handleApplyPromo = () => {
 		const discount = VALID_PROMO_CODES[promoInput.toUpperCase()];
@@ -131,34 +396,29 @@ function AddonsPageInner() {
 		}
 	};
 
+	// Called when user clicks "Confirm and Pay"
+	const handleConfirmAndPay = () => {
+		// If the current auth user is the admin account (or no user),
+		// show the auth modal first so a real customer logs in / registers.
+		if (isAdminAccount(user)) {
+			setShowAuthModal(true);
+			return;
+		}
+		// Real user already logged in — proceed directly
+		proceedToPayment();
+	};
+
+	// Called after successful auth (or if already a real user)
+	const proceedToPayment = () => {
+		setShowAuthModal(false);
+		dispatch(createDraftBooking());
+	};
+
 	const selectedAddons = addons.filter((a) => selectedAddonIds.includes(a.id));
 	const addonsTotal = selectedAddons.reduce((s, a) => s + a.price, 0);
 	const subtotal = (selection?.price ?? 0) + addonsTotal;
 	const discountAmount = Math.round(subtotal * promoDiscount);
 	const total = subtotal - discountAmount;
-
-	const handleConfirmAndPay = () => {
-		// Step 1: create draft booking
-		dispatch(createDraftBooking());
-	};
-
-	useEffect(() => {
-		if (
-			createStatus === "succeeded" &&
-			draftBookingId &&
-			initPayStatus === "idle"
-		) {
-			dispatch(initializePayment(draftBookingId));
-		}
-	}, [createStatus, draftBookingId, initPayStatus, dispatch]);
-
-	// Step 2: payment initialized → redirect to Paystack
-	useEffect(() => {
-		if (initPayStatus === "succeeded" && paystackUrl) {
-			window.location.href = paystackUrl; // full redirect to Paystack hosted page
-		}
-	}, [initPayStatus, paystackUrl]);
-
 	const isLoading = createStatus === "loading" || initPayStatus === "loading";
 
 	const formattedDate = selectedDate
@@ -171,6 +431,14 @@ function AddonsPageInner() {
 
 	return (
 		<main className='min-h-screen bg-gray-50'>
+			{/* Auth Gate Modal */}
+			{showAuthModal && (
+				<AuthModal
+					onClose={() => setShowAuthModal(false)}
+					onSuccess={proceedToPayment}
+				/>
+			)}
+
 			{/* Nav */}
 			<nav className='bg-white border-b border-gray-100 px-6 py-3'>
 				<div className='max-w-5xl mx-auto flex items-center justify-between'>
@@ -198,7 +466,7 @@ function AddonsPageInner() {
 				</h1>
 
 				<div className='grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8'>
-					{/* Left */}
+					{/* ── Left ─────────────────────────────────────────────── */}
 					<div className='flex flex-col gap-8'>
 						{/* Add-ons */}
 						<section>
@@ -214,7 +482,11 @@ function AddonsPageInner() {
 									return (
 										<div
 											key={addon.id}
-											className={`bg-white border rounded-xl p-4 flex items-center justify-between transition-all ${added ? "border-red-200 bg-red-50/30" : "border-gray-200"}`}
+											className={`bg-white border rounded-xl p-4 flex items-center justify-between transition-all ${
+												added
+													? "border-red-200 bg-red-50/30"
+													: "border-gray-200"
+											}`}
 										>
 											<div>
 												<p className='font-semibold text-gray-900 text-sm'>
@@ -226,11 +498,15 @@ function AddonsPageInner() {
 											</div>
 											<div className='flex items-center gap-3 shrink-0 ml-4'>
 												<span className='text-sm text-gray-600 font-medium'>
-													${addon.price}/{addon.unit}
+													₦{addon.price}/{addon.unit}
 												</span>
 												<button
 													onClick={() => dispatch(toggleAddon(addon.id))}
-													className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded transition-all ${added ? "bg-gray-900 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
+													className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded transition-all ${
+														added
+															? "bg-gray-900 text-white"
+															: "bg-red-600 hover:bg-red-700 text-white"
+													}`}
 												>
 													{added ? "✓ Added" : "+ Add"}
 												</button>
@@ -289,7 +565,7 @@ function AddonsPageInner() {
 							)}
 						</section>
 
-						{/* Error states */}
+						{/* Errors */}
 						{createError && (
 							<p className='text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3'>
 								{createError}
@@ -302,7 +578,7 @@ function AddonsPageInner() {
 						)}
 					</div>
 
-					{/* Right — Order Summary */}
+					{/* ── Right — Order Summary ────────────────────────────── */}
 					<div className='flex flex-col gap-4'>
 						<div className='bg-white border border-gray-200 rounded-xl p-6'>
 							<h3 className='font-black text-gray-900 text-lg mb-5'>
@@ -313,12 +589,12 @@ function AddonsPageInner() {
 									<span className='text-gray-500'>
 										{selection?.studioName} ({selection?.name})
 									</span>
-									<span className='font-semibold'>${selection?.price}</span>
+									<span className='font-semibold'>₦{selection?.price}</span>
 								</div>
 								{selectedAddons.map((a) => (
 									<div key={a.id} className='flex justify-between'>
 										<span className='text-gray-500'>{a.name} add-on</span>
-										<span className='font-semibold'>${a.price}</span>
+										<span className='font-semibold'>₦{a.price}</span>
 									</div>
 								))}
 								{promoCode && (
@@ -333,14 +609,14 @@ function AddonsPageInner() {
 											Promo ({promoCode})
 										</button>
 										<span className='font-semibold text-green-600'>
-											-${discountAmount}
+											-₦{discountAmount}
 										</span>
 									</div>
 								)}
 								<hr className='border-gray-100' />
 								<div className='flex justify-between'>
 									<span className='font-semibold text-gray-700'>Total</span>
-									<span className='font-black text-gray-900'>${total}</span>
+									<span className='font-black text-gray-900'>₦{total}</span>
 								</div>
 							</div>
 						</div>
@@ -369,6 +645,7 @@ function AddonsPageInner() {
 							</div>
 						)}
 
+						{/* CTA */}
 						<button
 							onClick={handleConfirmAndPay}
 							disabled={isLoading}
@@ -378,8 +655,9 @@ function AddonsPageInner() {
 								? "Creating booking…"
 								: initPayStatus === "loading"
 									? "Redirecting to payment…"
-									: `Confirm and Pay $${total} →`}
+									: `Confirm and Pay ₦${total} →`}
 						</button>
+
 						{initPayError && (
 							<p className='text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3'>
 								{initPayError}

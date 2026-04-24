@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
-const baseUrl = "http://164.92.130.188";
+const baseUrl = "https://dev.studiosurikudo.com/api/v2";
+
+const ADMIN_EMAIL = "roy@studiosurikudo.com";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,8 @@ export interface AuthState {
 	user: AuthUser | null;
 	status: "idle" | "loading" | "succeeded" | "failed";
 	error: string | null;
+	registerStatus: "idle" | "loading" | "succeeded" | "failed";
+	registerError: string | null;
 }
 
 interface LoginCredentials {
@@ -33,17 +37,31 @@ interface LoginCredentials {
 	password: string;
 }
 
+interface RegisterCredentials {
+	email: string;
+	password: string;
+	full_name: string;
+}
+
 interface LoginApiResponse {
 	full_name: string;
 	home_page: string;
-	message: {
+	message: string;
+	data: {
 		api_key: string;
 		api_secret: string;
 		customer: Customer;
 	};
 }
 
-// ─── Thunk ────────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+export function isAdminAccount(user: AuthUser | null): boolean {
+	if (!user) return true; // no user at all → treat as admin (force login)
+	return user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+}
+
+// ─── Thunks ───────────────────────────────────────────────────────────────────
 
 export const loginUser = createAsyncThunk<
 	AuthUser,
@@ -51,7 +69,7 @@ export const loginUser = createAsyncThunk<
 	{ rejectValue: string }
 >("auth/loginUser", async (credentials, { rejectWithValue }) => {
 	try {
-		const res = await fetch(`${baseUrl}/api/method/studio_app.api.auth.login`, {
+		const res = await fetch(`${baseUrl}/method/studio_app.api.auth.login`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(credentials),
@@ -66,17 +84,65 @@ export const loginUser = createAsyncThunk<
 		}
 
 		const data: LoginApiResponse = await res.json();
-
-		const token = `${data.message.api_key}:${data.message.api_secret}`;
+		const token = `${data.data.api_key}:${data.data.api_secret}`;
 
 		return {
 			full_name: data.full_name,
-			email: data.message.customer.email,
-			api_key: data.message.api_key,
-			api_secret: data.message.api_secret,
+			email: data.data.customer.email,
+			api_key: data.data.api_key,
+			api_secret: data.data.api_secret,
 			token,
-			customer: data.message.customer,
+			customer: data.data.customer,
 		};
+	} catch {
+		return rejectWithValue("Network error — please try again");
+	}
+});
+
+export const registerUser = createAsyncThunk<
+	AuthUser,
+	RegisterCredentials,
+	{ rejectValue: string }
+>("auth/registerUser", async (credentials, { rejectWithValue }) => {
+	try {
+		const res = await fetch(`${baseUrl}/method/studio_app.api.auth.register`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				email: credentials.email,
+				password: credentials.password,
+				full_name: credentials.full_name,
+			}),
+		});
+
+		const data = await res.json();
+		console.log("[Register] raw response:", data);
+
+		if (!res.ok) {
+			const serverMsg = data._server_messages
+				? JSON.parse(data._server_messages)[0]?.message
+				: null;
+
+			return rejectWithValue(
+				serverMsg ?? data.message ?? "Registration failed",
+			);
+		}
+
+		// ✅ CORRECT STRUCTURE (data.data)
+		const token = `${data.data.api_key}:${data.data.api_secret}`;
+
+		const user: AuthUser = {
+			full_name: data.data.customer.full_name,
+			email: data.data.customer.email,
+			api_key: data.data.api_key,
+			api_secret: data.data.api_secret,
+			token,
+			customer: data.data.customer,
+		};
+
+		console.log("[Register] mapped user:", user);
+
+		return user;
 	} catch {
 		return rejectWithValue("Network error — please try again");
 	}
@@ -92,10 +158,13 @@ const loadUser = (): AuthUser | null => {
 		return null;
 	}
 };
+
 const initialState: AuthState = {
-	user: loadUser(), // ← rehydrate on app boot
+	user: loadUser(),
 	status: "idle",
 	error: null,
+	registerStatus: "idle",
+	registerError: null,
 };
 
 const authSlice = createSlice({
@@ -106,14 +175,18 @@ const authSlice = createSlice({
 			state.user = null;
 			state.status = "idle";
 			state.error = null;
+			state.registerStatus = "idle";
+			state.registerError = null;
 			localStorage.removeItem("auth_user");
 		},
 		clearError(state) {
 			state.error = null;
+			state.registerError = null;
 		},
 	},
 	extraReducers: (builder) => {
 		builder
+			// ── Login ────────────────────────────────────────────────────────────
 			.addCase(loginUser.pending, (state) => {
 				state.status = "loading";
 				state.error = null;
@@ -127,7 +200,24 @@ const authSlice = createSlice({
 				(state, action: PayloadAction<AuthUser>) => {
 					state.status = "succeeded";
 					state.user = action.payload;
-					// Persist to localStorage
+					localStorage.setItem("auth_user", JSON.stringify(action.payload));
+				},
+			)
+
+			// ── Register ─────────────────────────────────────────────────────────
+			.addCase(registerUser.pending, (state) => {
+				state.registerStatus = "loading";
+				state.registerError = null;
+			})
+			.addCase(registerUser.rejected, (state, action) => {
+				state.registerStatus = "failed";
+				state.registerError = action.payload ?? "Unknown error";
+			})
+			.addCase(
+				registerUser.fulfilled,
+				(state, action: PayloadAction<AuthUser>) => {
+					state.registerStatus = "succeeded";
+					state.user = action.payload;
 					localStorage.setItem("auth_user", JSON.stringify(action.payload));
 				},
 			);

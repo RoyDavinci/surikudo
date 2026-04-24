@@ -1,102 +1,123 @@
+#!/usr/bin/env php
 <?php
-// Database connection configuration
-$host = 'localhost';
-$username = 'your_username';
-$password = 'your_password';
-$database = 'uba';
 
-// Function to decrypt encrypted text
+/**
+ * Usage:
+ *   php decrypt_csv.php input.csv output.csv
+ */
+
+define('ENCRYPTION_METHOD', 'AES-256-CBC');
+define('SECRET_KEY', '0TCJJ59QzctD8LXi+SUrhoHwxq+41t@1');
+define('IV', 'QzctD8LXi+SUrhoH');
+
+if ($argc < 3) {
+    fwrite(STDERR, "Usage: php decrypt_csv.php <input.csv> <output.csv>\n");
+    exit(1);
+}
+
+$inputFile  = $argv[1];
+$outputFile = $argv[2];
+
+if (!file_exists($inputFile)) {
+    fwrite(STDERR, "Error: Input file '$inputFile' not found.\n");
+    exit(1);
+}
+
+// ─── Decrypt helper ─────────────────────────────────────────
+
 function decryptEnc($encrypted)
 {
-    $encryptionMethod = "AES-256-CBC";
-    $secretKey = "0TCJJ59QzctD8LXi+SUrhoHwxq+41t@1";
-    $iv = "QzctD8LXi+SUrhoH";
+    // Clean surrounding junk (quotes, spaces, pipes)
+    $encrypted = trim($encrypted, " \t\n\r\0\x0B\"'|");
 
-    $decryptedText = openssl_decrypt($encrypted, $encryptionMethod, $secretKey, 0, $iv);
-    return $decryptedText;
+    if ($encrypted === '') {
+        return '';
+    }
+
+    // Fix possible base64 corruption (ONLY if needed)
+    // Some systems replace + with space
+    if (strpos($encrypted, ' ') !== false) {
+        $encrypted = str_replace(' ', '+', $encrypted);
+    }
+
+    $decrypted = openssl_decrypt(
+        $encrypted,
+        ENCRYPTION_METHOD,
+        SECRET_KEY,
+        0,
+        IV
+    );
+
+    return $decrypted !== false ? $decrypted : '';
 }
 
-// Function to check if text is encrypted (base64 encoded or contains typical encryption patterns)
-function isEncrypted($text)
-{
-    // Check if text is base64 encoded (common for encrypted data)
-    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $text)) {
-        $decoded = base64_decode($text, true);
-        if ($decoded !== false && strlen($decoded) > 0) {
-            // Additional check: if decoded contains non-printable characters or appears encrypted
-            if (preg_match('/[^\x20-\x7E]/', $decoded)) {
-                return true;
-            }
-        }
-    }
-    return false;
+// ─── Process ───────────────────────────────────────────────
+
+$inHandle  = fopen($inputFile, 'r');
+$outHandle = fopen($outputFile, 'w');
+
+if (!$inHandle) {
+    fwrite(STDERR, "Error: Cannot open input file.\n");
+    exit(1);
+}
+if (!$outHandle) {
+    fwrite(STDERR, "Error: Cannot open output file.\n");
+    exit(1);
 }
 
-try {
-    // Create database connection using MySQLi
-    $conn = new mysqli($host, $username, $password, $database);
+// Header
+fputcsv($outHandle, ['text', 'msisdn', 'status', 'created_at'], ',', '"', '\\');
 
-    // Check connection
-    if ($conn->connect_error) {
-        throw new Exception("Connection failed: " . $conn->connect_error);
+$processed = 0;
+$failed    = 0;
+$lineNum   = 0;
+
+while (($row = fgetcsv($inHandle)) !== false) {
+    $lineNum++;
+
+    if (empty($row) || !isset($row[0])) {
+        continue;
     }
 
-    // Prepare the SQL query to select required fields
-    $sql = "SELECT id, text, dlr_status, created_at, msisdn FROM OTPmessages";
+    // The entire line is inside first column
+    $line = trim($row[0]);
 
-    // Execute the query
-    $result = $conn->query($sql);
+    // Remove wrapping quotes if present
+    $line = trim($line, "\"'");
 
-    if (!$result) {
-        throw new Exception("Query failed: " . $conn->error);
+    // Now split manually by pipe
+    $parts = array_map('trim', explode('|', $line));
+
+    // Remove empty entries caused by leading/trailing pipe
+    $parts = array_values(array_filter($parts, fn($v) => $v !== ''));
+
+    if (count($parts) < 4) {
+        fwrite(STDERR, "Skipping line $lineNum\n");
+        $failed++;
+        continue;
     }
 
-    // Check if there are results
-    if ($result->num_rows > 0) {
-        echo "<h3>OTP Messages</h3>";
-        echo "<table border='1' cellpadding='10' cellspacing='0'>";
-        echo "<tr>";
-        echo "<th>ID</th>";
-        echo "<th>Text (Original)</th>";
-        echo "<th>Text (Decrypted)</th>";
-        echo "<th>DLR Status</th>";
-        echo "<th>Created At</th>";
-        echo "<th>MSISDN</th>";
-        echo "</tr>";
+    $encryptedText = $parts[0];
+    $msisdn        = $parts[1];
+    $status        = $parts[2];
+    $createdAt     = $parts[3];
 
-        // Fetch and process each row
-        while ($row = $result->fetch_assoc()) {
-            $originalText = $row['text'];
-            $decryptedText = $originalText; // Default to original if not encrypted
+    $decrypted = decryptEnc($encryptedText);
 
-            // Check if the text is encrypted and try to decrypt it
-            if (!empty($originalText) && isEncrypted($originalText)) {
-                $attemptDecrypt = decryptEnc($originalText);
-                if ($attemptDecrypt !== false && $attemptDecrypt !== null) {
-                    $decryptedText = $attemptDecrypt;
-                }
-            }
-
-            // Display the row
-            echo "<tr>";
-            echo "<td>" . htmlspecialchars($row['id']) . "</td>";
-            echo "<td>" . htmlspecialchars(substr($originalText, 0, 50)) . (strlen($originalText) > 50 ? "..." : "") . "</td>";
-            echo "<td>" . htmlspecialchars($decryptedText) . "</td>";
-            echo "<td>" . htmlspecialchars($row['dlr_status']) . "</td>";
-            echo "<td>" . htmlspecialchars($row['created_at']) . "</td>";
-            echo "<td>" . htmlspecialchars($row['msisdn']) . "</td>";
-            echo "</tr>";
-        }
-        echo "</table>";
-
-        echo "<p>Total records: " . $result->num_rows . "</p>";
-    } else {
-        echo "No records found.";
+    if ($decrypted === '') {
+        fputcsv($outHandle, ['[DECRYPT_FAILED]', $msisdn, $status, $createdAt], ',', '"', '\\');
+        $failed++;
+        continue;
     }
 
-    // Close the result set and connection
-    $result->free();
-    $conn->close();
-} catch (Exception $e) {
-    die("Error: " . $e->getMessage());
+    fputcsv($outHandle, [$decrypted, $msisdn, $status, $createdAt], ',', '"', '\\');
+    $processed++;
 }
+
+fclose($inHandle);
+fclose($outHandle);
+
+echo "Done.\n";
+echo "Processed: $processed rows\n";
+echo "Failed   : $failed rows\n";
+echo "Output   : $outputFile\n";

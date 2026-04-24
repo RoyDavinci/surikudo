@@ -3,14 +3,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { PackageServiceItem } from "./studioSlice";
 
-const baseUrl = "http://164.92.130.188";
-const baseUrl2 = "http://164.92.130.188";
+const baseUrl = "https://dev.studiosurikudo.com";
 
 const authHeaders = (token: string) => ({
-	Authorization: `Token ${token}`,
-	"Content-Type": "application/json",
-});
-const authHeaders2 = (token: string) => ({
 	Authorization: `Token ${token}`,
 	"Content-Type": "application/json",
 });
@@ -23,40 +18,49 @@ export interface SelectedPackage {
 	price: number;
 	unit: string;
 	type: "package" | "bundle" | "hourly" | "service";
-	serviceId: string; // SERV-xxxx
-	studioRoomId: string; // ROOM-xxxx
+	serviceId: string;
+	studioRoomId: string;
 	studioName: string;
 	durationHours: number;
 	packageServices?: PackageServiceItem[];
 }
 
 export interface TimeSlot {
-	start_time: string; // "09:00:00"
+	start_time: string;
 	end_time: string;
 	available: boolean;
-	label: string; // "9:00 AM"
+	label: string;
 }
 
 export interface Addon {
-	id: string; // ADD-xxxx
+	id: string;
 	name: string;
 	description: string;
 	price: number;
 	unit: string;
 }
 
-export interface BookingFlowState {
-	// Step 1 — selection
-	selection: SelectedPackage | null;
+export interface VerifiedBooking {
+	booking_id: string;
+	studio_name: string;
+	service_name: string;
+	start_datetime: string;
+	duration: number;
+	addons: string[];
+	promo_code?: string | null;
+	// Raw API fields — available if needed downstream
+	payment_status?: string;
+	total_amount?: number;
+	invoice?: string;
+}
 
-	// Step 2 — date/time
-	selectedDate: string | null; // "2026-04-18"
+export interface BookingFlowState {
+	selection: SelectedPackage | null;
+	selectedDate: string | null;
 	selectedSlot: TimeSlot | null;
 	slots: TimeSlot[];
 	slotsStatus: "idle" | "loading" | "succeeded" | "failed";
 	slotsError: string | null;
-
-	// Step 3 — addons + payment
 	selectedAddonIds: string[];
 	addons: Addon[];
 	addonsStatus: "idle" | "loading" | "succeeded" | "failed";
@@ -64,13 +68,9 @@ export interface BookingFlowState {
 	promoCode: string;
 	promoDiscount: number;
 	specialNote: string;
-
-	// Draft booking
 	draftBookingId: string | null;
 	createStatus: "idle" | "loading" | "succeeded" | "failed";
 	createError: string | null;
-
-	// Submit (post-payment)
 	submitStatus: "idle" | "loading" | "succeeded" | "failed";
 	submitError: string | null;
 	paystackUrl: string | null;
@@ -79,15 +79,7 @@ export interface BookingFlowState {
 	initPayError: string | null;
 	verifyStatus: "idle" | "loading" | "succeeded" | "failed";
 	verifyError: string | null;
-	verifiedBooking: {
-		booking_id: string;
-		studio_name: string;
-		service_name: string;
-		start_datetime: string;
-		duration: number;
-		addons: string[];
-		promo_code?: string;
-	} | null;
+	verifiedBooking: VerifiedBooking | null;
 }
 
 // ─── Thunks ───────────────────────────────────────────────────────────────────
@@ -104,7 +96,6 @@ export const fetchAvailableSlots = createAsyncThunk<
 				auth: { user: { token: string } | null };
 			};
 			const token = auth.user?.token ?? "";
-			console.log("params", studioRoomId, date);
 
 			const res = await fetch(
 				`${baseUrl}/api/v2/method/studio_app.api.availability.get_available_slots?studio_room=${studioRoomId}&date=${date}`,
@@ -117,14 +108,11 @@ export const fetchAvailableSlots = createAsyncThunk<
 			}
 
 			const data = await res.json();
-			console.log(data.data, "slots");
-			// Adjust mapping once you see the real shape — data.message is assumed to be an array
 			const raw: any[] = data.data ?? [];
 
 			return raw.map((s: any) => {
-				const start = s.start.split("T")[1]; // "09:00:00"
+				const start = s.start.split("T")[1];
 				const end = s.end.split("T")[1];
-
 				return {
 					start_time: start,
 					end_time: end,
@@ -149,7 +137,6 @@ export const fetchAddons = createAsyncThunk<
 		};
 		const token = auth.user?.token ?? "";
 
-		// ✅ Add query params like your curl
 		const params = new URLSearchParams({
 			fields: JSON.stringify([
 				"name",
@@ -165,11 +152,8 @@ export const fetchAddons = createAsyncThunk<
 
 		const res = await fetch(
 			`${baseUrl}/api/v2/document/Studio Addon?${params.toString()}`,
-			{
-				headers: authHeaders(token),
-			},
+			{ headers: authHeaders(token) },
 		);
-		console.log("res", res);
 
 		if (!res.ok) {
 			const err = await res.json().catch(() => ({}));
@@ -177,16 +161,13 @@ export const fetchAddons = createAsyncThunk<
 		}
 
 		const data = await res.json();
-		console.log("thunk addons", data.data);
-
-		// ❗ IMPORTANT: it's data.data NOT data.message
 		const raw: any[] = data.data ?? [];
 
 		return raw.map((a: any) => ({
 			id: a.name,
 			name: a.service_name ?? a.name,
 			description: a.description ?? "",
-			price: a.flat_rate ?? a.flat_rate ?? 0,
+			price: a.flat_rate ?? 0,
 			unit: `${a.rate_per_hour ?? 1} hr`,
 		}));
 	} catch {
@@ -195,7 +176,7 @@ export const fetchAddons = createAsyncThunk<
 });
 
 export const createDraftBooking = createAsyncThunk<
-	string, // returns booking_id
+	string,
 	void,
 	{ rejectValue: string }
 >("bookingFlow/createDraft", async (_, { rejectWithValue, getState }) => {
@@ -212,9 +193,7 @@ export const createDraftBooking = createAsyncThunk<
 			return rejectWithValue("Missing booking details");
 		}
 
-		// Build start_datetime: "2026-04-18 09:00:00"
 		const start_datetime = `${selectedDate} ${selectedSlot.start_time}`;
-
 		const selectedAddons = addons
 			.filter((a) => selectedAddonIds.includes(a.id))
 			.map((a) => ({ addon: a.id, quantity: 1 }));
@@ -226,6 +205,22 @@ export const createDraftBooking = createAsyncThunk<
 			start_datetime,
 			addons: selectedAddons,
 		};
+
+		// ── Save booking summary to sessionStorage so confirm page can read it
+		//    even if Redux is cleared between payment redirect and return.
+		const summary = {
+			studio_name: selection.studioName,
+			service_name: `${selection.name} (${selection.durationHours}h)`,
+			start_datetime,
+			duration: selection.durationHours,
+			addons: selectedAddons.map((a) => a.addon),
+			promo_code: null,
+		};
+		try {
+			sessionStorage.setItem("bookingSummary", JSON.stringify(summary));
+		} catch {
+			// sessionStorage not available (SSR guard)
+		}
 
 		const res = await fetch(
 			`${baseUrl}/api/v2/method/studio_app.api.bookings.create_booking`,
@@ -242,24 +237,20 @@ export const createDraftBooking = createAsyncThunk<
 		}
 
 		const data = await res.json();
-		console.log("draft", data);
 		return data.data?.booking ?? data.message?.name ?? "";
 	} catch {
 		return rejectWithValue("Network error — please try again");
 	}
 });
 
+// ─── verifyPayment ────────────────────────────────────────────────────────────
+// API returns: { data: { booking, customer, payment_status, total_amount, status, invoice } }
+// Richer display fields (studio_name, service_name, start_datetime, etc.) come
+// from sessionStorage.bookingSummary which was saved at createDraftBooking time.
+
 export const verifyPayment = createAsyncThunk<
-	{
-		booking_id: string;
-		studio_name: string;
-		service_name: string;
-		start_datetime: string;
-		duration: number;
-		addons: string[];
-		promo_code?: string;
-	},
-	string,
+	VerifiedBooking,
+	string, // payment reference
 	{ rejectValue: string }
 >(
 	"bookingFlow/verifyPayment",
@@ -274,15 +265,71 @@ export const verifyPayment = createAsyncThunk<
 				`${baseUrl}/api/v2/method/studio_app.api.payments.verify_payment?reference=${reference}`,
 				{ headers: authHeaders(token) },
 			);
-			console.log("reference", res);
 
 			if (!res.ok) {
 				const err = await res.json().catch(() => ({}));
 				return rejectWithValue(err.message ?? "Payment verification failed");
 			}
 
+			const json = await res.json();
+
+			// ── API response shape:
+			// { data: { booking, customer, payment_status, total_amount, status, invoice } }
+			const apiData = json.data ?? json.message ?? {};
+
+			// ── Enrich with session summary saved before Paystack redirect
+			let summary: Partial<VerifiedBooking> = {};
+			try {
+				const raw = sessionStorage.getItem("bookingSummary");
+				if (raw) summary = JSON.parse(raw);
+			} catch {
+				// ignore
+			}
+
+			return {
+				booking_id: apiData.booking ?? summary.booking_id ?? reference,
+				studio_name: summary.studio_name ?? "—",
+				service_name: summary.service_name ?? "—",
+				start_datetime: summary.start_datetime ?? "",
+				duration: summary.duration ?? 0,
+				addons: summary.addons ?? [],
+				promo_code: summary.promo_code ?? null,
+				// raw API fields
+				payment_status: apiData.payment_status,
+				total_amount: apiData.total_amount,
+				invoice: apiData.invoice,
+			};
+		} catch {
+			return rejectWithValue("Network error — please try again");
+		}
+	},
+);
+
+export const initializePayment = createAsyncThunk<
+	{ authorization_url: string; reference: string; access_code: string },
+	string,
+	{ rejectValue: string }
+>(
+	"bookingFlow/initializePayment",
+	async (bookingId, { rejectWithValue, getState }) => {
+		try {
+			const { auth } = getState() as {
+				auth: { user: { token: string } | null };
+			};
+			const token = auth.user?.token ?? "";
+
+			const res = await fetch(
+				`${baseUrl}/api/v2/method/studio_app.api.payments.initialize_payment?booking_id=${bookingId}`,
+				{ headers: authHeaders(token) },
+			);
+
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				return rejectWithValue(err.message ?? "Failed to initialize payment");
+			}
+
 			const data = await res.json();
-			return data.message; // booking summary from Paystack/server
+			return data.data;
 		} catch {
 			return rejectWithValue("Network error — please try again");
 		}
@@ -324,38 +371,6 @@ export const submitBooking = createAsyncThunk<
 	},
 );
 
-export const initializePayment = createAsyncThunk<
-	{ authorization_url: string; reference: string; access_code: string },
-	string, // booking_id
-	{ rejectValue: string }
->(
-	"bookingFlow/initializePayment",
-	async (bookingId, { rejectWithValue, getState }) => {
-		try {
-			const { auth } = getState() as {
-				auth: { user: { token: string } | null };
-			};
-			const token = auth.user?.token ?? "";
-
-			const res = await fetch(
-				`${baseUrl}/api/v2/method/studio_app.api.payments.initialize_payment?booking_id=${bookingId}`,
-				{ headers: authHeaders(token) },
-			);
-			console.log("initialize", res);
-
-			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				return rejectWithValue(err.message ?? "Failed to initialize payment");
-			}
-
-			const data = await res.json();
-			return data.data; // { authorization_url, reference, access_code }
-		} catch {
-			return rejectWithValue("Network error — please try again");
-		}
-	},
-);
-
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function formatTime(time24: string): string {
@@ -368,7 +383,7 @@ function formatTime(time24: string): string {
 	return `${h}:${m} ${meridiem}`;
 }
 
-// ─── Slice ────────────────────────────────────────────────────────────────────
+// ─── Initial state ────────────────────────────────────────────────────────────
 
 const initialState: BookingFlowState = {
 	selection: null,
@@ -398,13 +413,14 @@ const initialState: BookingFlowState = {
 	verifiedBooking: null,
 };
 
+// ─── Slice ────────────────────────────────────────────────────────────────────
+
 const bookingFlowSlice = createSlice({
 	name: "bookingFlow",
 	initialState,
 	reducers: {
 		setSelection(state, action: PayloadAction<SelectedPackage>) {
 			state.selection = action.payload;
-			// Reset downstream state when selection changes
 			state.selectedDate = null;
 			state.selectedSlot = null;
 			state.slots = [];
@@ -416,7 +432,7 @@ const bookingFlowSlice = createSlice({
 		},
 		setDate(state, action: PayloadAction<string>) {
 			state.selectedDate = action.payload;
-			state.selectedSlot = null; // clear slot when date changes
+			state.selectedSlot = null;
 		},
 		setSlot(state, action: PayloadAction<TimeSlot>) {
 			state.selectedSlot = action.payload;
@@ -438,7 +454,12 @@ const bookingFlowSlice = createSlice({
 		setSpecialNote(state, action: PayloadAction<string>) {
 			state.specialNote = action.payload;
 		},
-		resetFlow(state) {
+		resetFlow() {
+			try {
+				sessionStorage.removeItem("bookingSummary");
+			} catch {
+				/* ignore */
+			}
 			return initialState;
 		},
 	},
@@ -499,7 +520,9 @@ const bookingFlowSlice = createSlice({
 			.addCase(submitBooking.rejected, (state, action) => {
 				state.submitStatus = "failed";
 				state.submitError = action.payload ?? "Unknown error";
-			}) // initialize payment
+			})
+
+			// initialize payment
 			.addCase(initializePayment.pending, (state) => {
 				state.initPayStatus = "loading";
 				state.initPayError = null;
@@ -519,13 +542,13 @@ const bookingFlowSlice = createSlice({
 				state.verifyStatus = "loading";
 				state.verifyError = null;
 			})
-			.addCase(verifyPayment.rejected, (state, action) => {
-				state.verifyStatus = "failed";
-				state.verifyError = action.payload ?? "Unknown error";
-			})
 			.addCase(verifyPayment.fulfilled, (state, action) => {
 				state.verifyStatus = "succeeded";
 				state.verifiedBooking = action.payload;
+			})
+			.addCase(verifyPayment.rejected, (state, action) => {
+				state.verifyStatus = "failed";
+				state.verifyError = action.payload ?? "Unknown error";
 			});
 	},
 });
