@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, useEffect, Suspense, useRef } from "react";
 import { IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useAppDispatch, useAppSelector } from "../../../lib/redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
 import {
 	fetchAddons,
 	toggleAddon,
@@ -14,13 +14,13 @@ import {
 	setSpecialNote,
 	createDraftBooking,
 	initializePayment,
-} from "../../../lib/redux/slices/bookingFlowSlice";
+} from "../../lib/redux/slices/bookingFlowSlice";
 import {
 	loginUser,
 	registerUser,
 	isAdminAccount,
 	clearError,
-} from "../../../lib/redux/slices/authSlice";
+} from "../../lib/redux/slices/authSlice";
 
 const VALID_PROMO_CODES: Record<string, number> = {
 	SURIKUDO20: 0.2,

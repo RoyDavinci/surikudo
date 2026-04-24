@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "../../../lib/redux/hooks";
-import { fetchInvoices } from "../../../lib/redux/slices/invoicesSlice";
+import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
+import { fetchInvoices } from "../../lib/redux/slices/invoicesSlice";
 
 const IconDownload = () => (
 	<svg

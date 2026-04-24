@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useState, Suspense } from "react";
 import { IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useAppDispatch, useAppSelector } from "../../../lib/redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
 import {
 	fetchAvailableSlots,
 	setDate,
 	setSlot,
 	TimeSlot,
-} from "../../../lib/redux/slices/bookingFlowSlice";
+} from "../../lib/redux/slices/bookingFlowSlice";
 
 // ─── Mock data for calendar — replace with real API ───────────────────────────
 const BOOKED_DATES = [10, 14, 16, 22]; // days in current month that are fully booked

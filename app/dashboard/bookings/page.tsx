@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "../../../lib/redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
 import {
 	fetchUpcomingBookings,
 	fetchPreviousBookings,
-} from "../../../lib/redux/slices/bookingSlice";
+} from "../../lib/redux/slices/bookingSlice";
 
 type FilterType = "ALL" | "UPCOMING" | "PAST";
 
