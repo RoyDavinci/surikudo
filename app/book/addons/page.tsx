@@ -351,13 +351,10 @@ function AddonsPageInner() {
 		}
 	}, [createStatus, draftBookingId, initPayStatus, dispatch]);
 
-	// After payment initialized → save summary + redirect
 	useEffect(() => {
-		if (
-			initPayStatus === "succeeded" &&
-			paystackUrl &&
-			typeof window !== "undefined"
-		) {
+		if (initPayStatus === "succeeded" && paystackUrl) {
+			if (typeof window === "undefined") return; // SSR guard
+
 			sessionStorage.setItem(
 				"bookingSummary",
 				JSON.stringify({
