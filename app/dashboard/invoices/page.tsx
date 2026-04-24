@@ -109,7 +109,7 @@ export default function InvoicesPage() {
 						background: "#e60000",
 					}}
 				/>
-				<h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Invoices</h1>
+				<h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Receipts</h1>
 			</div>
 
 			<div
@@ -129,7 +129,7 @@ export default function InvoicesPage() {
 						marginBottom: 20,
 					}}
 				>
-					INVOICES
+					RECEIPTS
 				</h2>
 
 				<table

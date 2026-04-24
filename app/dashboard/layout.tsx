@@ -58,7 +58,7 @@ const NAV = [
 	},
 	{
 		href: "/dashboard/invoices",
-		label: "Invoices",
+		label: "Receipts",
 		icon: (
 			<svg
 				viewBox='0 0 24 24'
@@ -200,7 +200,7 @@ export default function DashboardLayout({
 				{/* Book a session */}
 				<div style={{ padding: "0 16px" }}>
 					<Link
-						href='/book'
+						href='/#studios'
 						style={{
 							display: "block",
 							textAlign: "center",

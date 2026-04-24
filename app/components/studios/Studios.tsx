@@ -241,7 +241,7 @@ export default function Studios() {
 											</div>
 
 											<div className='flex items-center justify-between pt-3 border-t border-gray-100'>
-												<span className='text-xl font-bold text-gray-900'>
+												<span className='text-md font-bold text-gray-900'>
 													{studio.price}
 												</span>
 												<span className='border border-red-600 text-red-600 text-xs font-semibold px-3 py-1.5 hover:bg-red-600 hover:text-white transition-colors flex items-center gap-1'>

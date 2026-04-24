@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 
 const plans = [
 	{
@@ -83,7 +82,7 @@ const plans = [
 	},
 ];
 
-const logos = ["Nexera", "Cyfuse", "Orbital", "Velion"];
+// const logos = ["Nexera", "Cyfuse", "Orbital", "Velion"];
 
 export default function Pricing() {
 	const [annual, setAnnual] = useState(true);
@@ -219,7 +218,7 @@ export default function Pricing() {
 				</div>
 
 				{/* Logos */}
-				<div className='flex items-center justify-center gap-8 flex-wrap'>
+				{/* <div className='flex items-center justify-center gap-8 flex-wrap'>
 					{logos.map((logo) => (
 						<span
 							key={logo}
@@ -229,7 +228,7 @@ export default function Pricing() {
 							{logo}
 						</span>
 					))}
-				</div>
+				</div> */}
 			</div>
 		</section>
 	);

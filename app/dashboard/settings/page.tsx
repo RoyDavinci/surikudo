@@ -37,14 +37,14 @@ export default function AccountSettingsPage() {
 		setSaveError("");
 
 		try {
-			const res = await fetch(`${baseUrl}/document/User`, {
+			const res = await fetch(`${baseUrl}/document/Studio%20Customer`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Token ${user.token}`,
 				},
 				body: JSON.stringify({
-					full_name: fullName,
+					"First Name": fullName,
 					email,
 					phone_number: phone,
 				}),

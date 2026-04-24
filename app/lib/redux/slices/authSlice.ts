@@ -148,6 +148,49 @@ export const registerUser = createAsyncThunk<
 	}
 });
 
+export const silentAdminLogin = createAsyncThunk<
+	AuthUser,
+	void,
+	{ rejectValue: string; state: { auth: AuthState } }
+>("auth/silentAdminLogin", async (_, { rejectWithValue, getState }) => {
+	// Already have a user (admin or real customer) — skip
+	if (getState().auth.user) return {} as AuthUser; // won't be used
+
+	try {
+		const res = await fetch(`${baseUrl}/method/studio_app.api.auth.login`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				email: "roy@studiosurikudo.com",
+				password: "Studi@Sur!kudo",
+			}),
+		});
+
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({}));
+			return rejectWithValue(err.message ?? "Silent login failed");
+		}
+
+		const data: LoginApiResponse = await res.json();
+		const token = `${data.data.api_key}:${data.data.api_secret}`;
+
+		const user: AuthUser = {
+			full_name: data.full_name,
+			email: data.data.customer.email,
+			api_key: data.data.api_key,
+			api_secret: data.data.api_secret,
+			token,
+			customer: data.data.customer,
+		};
+
+		// Store so subsequent refreshes skip the call
+		localStorage.setItem("auth_user", JSON.stringify(user));
+		return user;
+	} catch {
+		return rejectWithValue("Network error during silent login");
+	}
+});
+
 // ─── Slice ────────────────────────────────────────────────────────────────────
 
 const loadUser = (): AuthUser | null => {
@@ -220,7 +263,16 @@ const authSlice = createSlice({
 					state.user = action.payload;
 					localStorage.setItem("auth_user", JSON.stringify(action.payload));
 				},
-			);
+			)
+			.addCase(silentAdminLogin.fulfilled, (state, action) => {
+				// getState check above returns {} if user already existed — ignore it
+				if (action.payload?.token) {
+					state.user = action.payload;
+				}
+			})
+			.addCase(silentAdminLogin.rejected, (state, action) => {
+				console.warn("[SilentLogin] failed:", action.payload);
+			});
 	},
 });
 

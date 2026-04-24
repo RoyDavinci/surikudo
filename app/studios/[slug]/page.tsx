@@ -130,7 +130,7 @@ function ServiceCard({
 			<p className='font-bold text-gray-900 mb-1 pr-6'>{service.name}</p>
 			<div className='flex items-baseline gap-0.5 mb-3'>
 				<span className='text-3xl font-black text-gray-900'>
-					₦{service.basePrice.toLocaleString()}
+					₦{service.pricePerHour.toLocaleString()}
 				</span>
 			</div>
 			<hr className='border-gray-100 mb-3' />
@@ -375,7 +375,7 @@ export default function StudioDetailPage() {
 				setSelection({
 					id: activeService.id,
 					name: activeService.name,
-					price: activeService.basePrice,
+					price: activeService.pricePerHour,
 					unit: `${activeService.duration}h`,
 					type: "service",
 					serviceId: activeService.id,

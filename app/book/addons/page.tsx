@@ -27,6 +27,12 @@ const VALID_PROMO_CODES: Record<string, number> = {
 	STUDIO10: 0.1,
 };
 
+function stripHtml(html: string) {
+	if (typeof window === "undefined") return html;
+	const doc = new DOMParser().parseFromString(html, "text/html");
+	return doc.body.textContent || "";
+}
+
 // ─── StepBar ──────────────────────────────────────────────────────────────────
 
 function StepBar({ step }: { step: number }) {
@@ -498,7 +504,7 @@ function AddonsPageInner() {
 													{addon.name}
 												</p>
 												<p className='text-gray-500 text-xs mt-0.5'>
-													{addon.description}
+													{stripHtml(addon.description)}
 												</p>
 											</div>
 											<div className='flex items-center gap-3 shrink-0 ml-4'>

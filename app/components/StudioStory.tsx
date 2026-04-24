@@ -48,7 +48,7 @@ export default function StudioStory() {
 						Get started
 					</Link>
 					<Link
-						href='#team'
+						href='/#studios'
 						className='bg-white text-gray-900 font-semibold px-6 py-2.5 text-sm hover:bg-gray-100 transition-colors rounded'
 					>
 						Explore features

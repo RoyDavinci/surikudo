@@ -88,6 +88,7 @@ export const fetchPreviousBookings = createAsyncThunk<
 		}
 
 		const data = await res.json();
+		console.log("bookings", data);
 		return (data.message ?? []).map((b: any) => ({
 			...b,
 			status: "COMPLETE" as const,

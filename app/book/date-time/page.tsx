@@ -13,42 +13,7 @@ import {
 	TimeSlot,
 } from "../../lib/redux/slices/bookingFlowSlice";
 
-// ─── Mock data for calendar — replace with real API ───────────────────────────
-const BOOKED_DATES = [10, 14, 16, 22]; // days in current month that are fully booked
-
-// ─── Step Bar ─────────────────────────────────────────────────────────────────
-
-function StepBar({ step }: { step: number }) {
-	const steps = ["Services", "Date & Time", "Add-ons & Payment"];
-	return (
-		<div className='flex items-center gap-3'>
-			{steps.map((label, i) => {
-				const n = i + 1;
-				const active = n === step;
-				const done = n < step;
-				return (
-					<div key={label} className='flex items-center gap-2'>
-						<div
-							className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${active ? "bg-red-600 text-white" : done ? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}
-						>
-							{done ? "✓" : n}
-						</div>
-						<span
-							className={`text-sm ${active ? "font-semibold text-gray-900" : "text-gray-400"}`}
-						>
-							{label}
-						</span>
-						{i < steps.length - 1 && (
-							<span className='text-gray-200 ml-1'>›</span>
-						)}
-					</div>
-				);
-			})}
-		</div>
-	);
-}
-
-// ─── Calendar ────────────────────────────────────────────────────────────────
+const BOOKED_DATES = [10, 14, 16, 22];
 
 const MONTHS = [
 	"January",
@@ -64,7 +29,47 @@ const MONTHS = [
 	"November",
 	"December",
 ];
-const DAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+// ─── Step Bar ─────────────────────────────────────────────────────────────────
+
+function StepBar({ step }: { step: number }) {
+	const steps = ["Services", "Date & Time", "Payment"];
+	return (
+		<div className='flex items-center gap-2'>
+			{steps.map((label, i) => {
+				const n = i + 1;
+				const active = n === step;
+				const done = n < step;
+				return (
+					<div key={label} className='flex items-center gap-1.5'>
+						<div
+							className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+								active
+									? "bg-red-600 text-white"
+									: done
+										? "bg-green-500 text-white"
+										: "bg-gray-200 text-gray-400"
+							}`}
+						>
+							{done ? "✓" : n}
+						</div>
+						<span
+							className={`text-xs ${active ? "font-semibold text-gray-900" : "text-gray-400"}`}
+						>
+							{label}
+						</span>
+						{i < steps.length - 1 && (
+							<span className='text-gray-300 ml-1 text-xs'>›</span>
+						)}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+// ─── Compact Calendar ────────────────────────────────────────────────────────
 
 function Calendar({
 	selectedDate,
@@ -91,26 +96,25 @@ function Calendar({
 		...Array(firstDay).fill(null),
 		...Array.from({ length: daysInMonth }, (_, i) => i + 1),
 	];
-	// Pad to full weeks
 	while (cells.length % 7 !== 0) cells.push(null);
 
 	return (
-		<div className='bg-white border border-gray-200 rounded-xl p-6'>
+		<div>
 			{/* Month nav */}
-			<div className='flex items-center justify-between mb-6'>
-				<h3 className='font-bold text-gray-900'>
+			<div className='flex items-center justify-between mb-3'>
+				<h3 className='font-bold text-gray-900 text-sm'>
 					{MONTHS[month]} {year}
 				</h3>
-				<div className='flex gap-1'>
+				<div className='flex gap-0.5'>
 					<button
 						onClick={onPrev}
-						className='w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-red-600'
+						className='w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 text-red-600 text-lg leading-none'
 					>
 						‹
 					</button>
 					<button
 						onClick={onNext}
-						className='w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-red-600'
+						className='w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 text-red-600 text-lg leading-none'
 					>
 						›
 					</button>
@@ -118,19 +122,19 @@ function Calendar({
 			</div>
 
 			{/* Day headers */}
-			<div className='grid grid-cols-7 mb-2'>
+			<div className='grid grid-cols-7 mb-1'>
 				{DAYS.map((d, i) => (
 					<div
 						key={i}
-						className='text-center text-xs font-semibold text-gray-400 py-1'
+						className='text-center text-[10px] font-semibold text-gray-400 py-0.5'
 					>
 						{d}
 					</div>
 				))}
 			</div>
 
-			{/* Date cells */}
-			<div className='grid grid-cols-7 gap-1'>
+			{/* Date cells — compact 32px squares */}
+			<div className='grid grid-cols-7 gap-0.5'>
 				{cells.map((day, i) => {
 					if (!day) return <div key={i} />;
 
@@ -145,12 +149,12 @@ function Calendar({
 							key={i}
 							disabled={disabled}
 							onClick={() => onSelect(day)}
-							className={`aspect-square flex items-center justify-center text-sm rounded transition-all
+							className={`h-8 w-full flex items-center justify-center text-xs rounded transition-all
 								${isSelected ? "bg-red-600 text-white font-bold" : ""}
 								${isBooked ? "bg-gray-100 text-gray-300 cursor-not-allowed line-through" : ""}
 								${isPast && !isBooked ? "text-gray-300 cursor-not-allowed" : ""}
-								${!disabled && !isSelected ? "hover:bg-gray-100 text-gray-700" : ""}
-								${isToday && !isSelected ? "ring-1 ring-red-400 font-semibold" : ""}
+								${!disabled && !isSelected ? "hover:bg-red-50 hover:text-red-600 text-gray-700" : ""}
+								${isToday && !isSelected ? "ring-1 ring-red-400 font-semibold text-red-600" : ""}
 							`}
 						>
 							{day}
@@ -162,7 +166,7 @@ function Calendar({
 	);
 }
 
-// ─── Time Slots with API integration ─────────────────────────────────────────
+// ─── Time Slots ───────────────────────────────────────────────────────────────
 
 function TimeSlots({
 	slots,
@@ -177,38 +181,38 @@ function TimeSlots({
 }) {
 	if (status === "loading") {
 		return (
-			<div className='mt-6'>
-				<p className='text-sm text-gray-400 animate-pulse'>
-					Loading available slots…
-				</p>
+			<div className='mt-4 flex gap-2 flex-wrap'>
+				{[...Array(6)].map((_, i) => (
+					<div key={i} className='h-8 w-20 bg-gray-100 rounded animate-pulse' />
+				))}
 			</div>
 		);
 	}
 
 	if (status === "failed") {
 		return (
-			<div className='mt-6'>
-				<p className='text-sm text-red-500'>
-					Could not load slots. Please try another date.
-				</p>
-			</div>
+			<p className='mt-4 text-xs text-red-500'>
+				Could not load slots. Try another date.
+			</p>
 		);
 	}
 
 	if (status === "succeeded" && slots.length === 0) {
 		return (
-			<div className='mt-6'>
-				<p className='text-sm text-gray-500'>
-					No available slots for this date.
-				</p>
-			</div>
+			<p className='mt-4 text-xs text-gray-500'>
+				No slots available for this date.
+			</p>
 		);
 	}
 
+	if (status === "idle" || slots.length === 0) return null;
+
 	return (
-		<div className='mt-6'>
-			<h3 className='font-bold text-gray-900 mb-4'>Available Slots</h3>
-			<div className='flex flex-wrap gap-2'>
+		<div className='mt-4'>
+			<p className='text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2'>
+				Available Times
+			</p>
+			<div className='flex flex-wrap gap-1.5'>
 				{slots.map((slot) => {
 					const isSelected = selectedSlot?.start_time === slot.start_time;
 					return (
@@ -216,11 +220,14 @@ function TimeSlots({
 							key={slot.start_time}
 							disabled={!slot.available}
 							onClick={() => onSelect(slot)}
-							className={`px-3 py-2 rounded text-sm font-medium border transition-all
-                ${isSelected ? "border-red-600 text-red-600 bg-red-50 ring-1 ring-red-600" : ""}
-                ${!slot.available ? "border-gray-200 text-gray-300 line-through cursor-not-allowed" : ""}
-                ${!isSelected && slot.available ? "border-gray-200 text-gray-700 hover:border-gray-400" : ""}
-              `}
+							className={`px-3 py-1.5 rounded text-xs font-medium border transition-all
+								${
+									isSelected
+										? "border-red-600 bg-red-600 text-white"
+										: slot.available
+											? "border-gray-200 text-gray-700 hover:border-red-300 hover:text-red-600"
+											: "border-gray-100 text-gray-300 line-through cursor-not-allowed"
+								}`}
 						>
 							{slot.label}
 						</button>
@@ -231,8 +238,6 @@ function TimeSlots({
 	);
 }
 
-// ─── Helper function to format time ──────────────────────────────────────────
-
 function formatTime(time24: string): string {
 	const [hStr, mStr] = (time24 ?? "00:00").split(":");
 	let h = parseInt(hStr);
@@ -242,7 +247,7 @@ function formatTime(time24: string): string {
 	return `${h}:${mStr ?? "00"} ${meridiem}`;
 }
 
-// ─── Inner page ──────────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 function DateTimePage() {
 	const router = useRouter();
@@ -251,13 +256,10 @@ function DateTimePage() {
 	const { selection, selectedDate, selectedSlot, slots, slotsStatus } =
 		useAppSelector((state) => state.bookingFlow);
 
-	console.log(selection, slots);
-
 	const today = new Date();
 	const [year, setYear] = useState(today.getFullYear());
 	const [month, setMonth] = useState(today.getMonth());
 
-	// If user lands here without a selection (e.g. direct URL), send them back
 	if (!selection) {
 		router.replace("/#studios");
 		return null;
@@ -266,7 +268,6 @@ function DateTimePage() {
 	const handleDaySelect = (day: number) => {
 		const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 		dispatch(setDate(dateStr));
-		// Fetch real slots from API
 		if (selection?.studioRoomId) {
 			dispatch(
 				fetchAvailableSlots({
@@ -277,18 +278,8 @@ function DateTimePage() {
 		}
 	};
 
-	const handleSlotSelect = (slot: TimeSlot) => {
-		dispatch(setSlot(slot));
-	};
-
 	const canContinue = selectedDate !== null && selectedSlot !== null;
 
-	const handleContinue = () => {
-		if (!canContinue) return;
-		router.push("/book/addons");
-	};
-
-	// Parse selectedDate back to a day number for Calendar highlight
 	const selectedDay = selectedDate
 		? parseInt(selectedDate.split("-")[2])
 		: null;
@@ -299,21 +290,17 @@ function DateTimePage() {
 
 	const formattedDate = selectedDate
 		? new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-				month: "long",
+				month: "short",
 				day: "numeric",
 				year: "numeric",
 			})
 		: null;
 
-	const timeDisplay = selectedSlot
-		? `${selectedSlot.label} – ${formatTime(selectedSlot.end_time)}`
-		: null;
-
 	return (
-		<main className='min-h-screen bg-gray-50'>
+		<main className='min-h-screen bg-gray-50 flex flex-col'>
 			{/* Nav */}
-			<nav className='bg-white border-b border-gray-100 px-6 py-3'>
-				<div className='max-w-5xl mx-auto flex items-center justify-between'>
+			<nav className='bg-white border-b border-gray-100 px-6 py-3 shrink-0'>
+				<div className='max-w-4xl mx-auto flex items-center justify-between'>
 					<div className='flex items-center gap-2 text-sm text-gray-500'>
 						<IconButton
 							onClick={() => router.back()}
@@ -322,33 +309,30 @@ function DateTimePage() {
 						>
 							<ArrowBackIcon fontSize='small' sx={{ color: "#dc2626" }} />
 						</IconButton>
-
 						<Link
 							href={`/studios/${selection.studioName.toLowerCase().replace(/\s+/g, "-")}`}
 							className='hover:text-gray-900 transition-colors'
 						>
 							Studio
 						</Link>
-
 						<span>/</span>
-
 						<span className='text-gray-900 font-medium'>
 							{selection.studioName}
 						</span>
 					</div>
-
 					<StepBar step={2} />
 				</div>
 			</nav>
 
-			<div className='max-w-5xl mx-auto px-6 py-10'>
-				<h1 className='text-3xl font-black text-gray-950 mb-10'>
+			{/* Body — fixed height, no scroll */}
+			<div className='flex-1 max-w-4xl mx-auto w-full px-6 py-6 flex flex-col'>
+				<h1 className='text-xl font-black text-gray-950 mb-5'>
 					Pick a Date &amp; Time
 				</h1>
 
-				<div className='grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8'>
-					{/* Left — Calendar + slots */}
-					<div>
+				<div className='flex-1 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5 min-h-0'>
+					{/* Left — calendar + slots in one card */}
+					<div className='bg-white border border-gray-200 h-[500px] rounded-xl p-5 flex flex-col'>
 						<Calendar
 							selectedDate={calSelectedDay}
 							onSelect={handleDaySelect}
@@ -367,37 +351,51 @@ function DateTimePage() {
 								} else setMonth((m) => m + 1);
 							}}
 						/>
-						{selectedDate && (
-							<TimeSlots
-								slots={slots}
-								status={slotsStatus}
-								selectedSlot={selectedSlot}
-								onSelect={handleSlotSelect}
-							/>
-						)}
+
+						{/* Divider only when date is selected */}
+						{selectedDate && <div className='border-t border-gray-100 mt-4' />}
+
+						<TimeSlots
+							slots={slots}
+							status={slotsStatus}
+							selectedSlot={selectedSlot}
+							onSelect={(slot) => dispatch(setSlot(slot))}
+						/>
 					</div>
 
-					{/* Right — Summary */}
-					<div className='flex flex-col gap-4'>
-						<div className='bg-white border border-gray-200 rounded-xl p-6'>
-							<h3 className='font-black text-gray-900 text-lg mb-5'>
+					{/* Right — summary + CTA */}
+					<div className='flex flex-col gap-3'>
+						<div className='bg-white border border-gray-200 rounded-xl p-5'>
+							<p className='text-xs font-bold text-gray-400 uppercase tracking-wide mb-3'>
 								Your Selection
-							</h3>
-							<div className='flex flex-col gap-3 text-sm'>
+							</p>
+							<div className='flex flex-col gap-2 text-sm'>
 								{[
-									{ label: "Studio", value: selection?.studioName },
+									{ label: "Studio", value: selection.studioName },
 									{
 										label: "Package",
-										value: `${selection?.name} (${selection?.unit})`,
+										value: `${selection.name} (${selection.unit})`,
 									},
-									{ label: "Duration", value: selection?.unit },
-									{ label: "Date", value: formattedDate ?? "—" },
-									{ label: "Time", value: timeDisplay ?? "—", red: true },
+									{ label: "Duration", value: selection.unit },
+									{
+										label: "Date",
+										value: formattedDate ?? "—",
+									},
+									{
+										label: "Time",
+										value: selectedSlot
+											? `${selectedSlot.label} – ${formatTime(selectedSlot.end_time)}`
+											: "—",
+										red: true,
+									},
 								].map(({ label, value, red }) => (
-									<div key={label} className='flex justify-between items-start'>
-										<span className='text-gray-500'>{label}</span>
+									<div
+										key={label}
+										className='flex justify-between items-start gap-2'
+									>
+										<span className='text-gray-400 shrink-0'>{label}</span>
 										<span
-											className={`font-bold text-right ${red ? "text-red-600" : "text-gray-900"}`}
+											className={`font-semibold text-right text-xs ${red ? "text-red-600" : "text-gray-900"}`}
 										>
 											{value}
 										</span>
@@ -406,17 +404,25 @@ function DateTimePage() {
 							</div>
 						</div>
 
+						{/* Price pill */}
+						<div className='bg-gray-900 rounded-xl px-5 py-4 flex items-center justify-between'>
+							<span className='text-xs text-gray-400'>Total</span>
+							<span className='text-white font-black text-lg'>
+								₦{selection.price.toLocaleString()}
+							</span>
+						</div>
+
 						<button
-							onClick={handleContinue}
+							onClick={() => canContinue && router.push("/book/addons")}
 							disabled={!canContinue}
-							className='w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 px-6 rounded text-sm transition-colors'
+							className='w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded text-sm transition-colors'
 						>
-							Continue to Checkout →
+							{canContinue ? "Continue to Checkout →" : "Select a date & time"}
 						</button>
 
 						<button
 							onClick={() => router.back()}
-							className='text-center text-sm text-gray-400 hover:text-gray-600'
+							className='text-center text-xs text-gray-400 hover:text-gray-600'
 						>
 							← Back to Services
 						</button>
@@ -426,8 +432,6 @@ function DateTimePage() {
 		</main>
 	);
 }
-
-// ─── Export with Suspense (kept from old code for consistency) ───────────────
 
 export default function DateTimePageWrapper() {
 	return (
