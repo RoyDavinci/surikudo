@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { makeAuthenticatedFetch } from "./authSlice";
 
 const baseUrl = "https://dev.studiosurikudo.com";
 
@@ -37,6 +38,7 @@ export interface StudioPackage {
 	durationHours: number;
 	features: string[];
 	highlighted: boolean;
+	package_name?: string;
 	// The primary serviceId — taken from services[0].service in the full detail
 	serviceId: string;
 	// All services inside this package (populated after fetchPackageDetail)
@@ -103,6 +105,10 @@ export const fetchStudioServices = createAsyncThunk<
 		});
 
 		const token = getToken(getState);
+		const url = `${baseUrl}/api/v2/document/Studio Service?${params.toString()}`;
+		const red = await makeAuthenticatedFetch(url, token);
+
+		if (!red.ok) return rejectWithValue("Failed to fetch");
 		const res = await fetch(
 			`${baseUrl}/api/v2/document/Studio Service?${params.toString()}`,
 			{ headers: authHeaders(token) },
@@ -215,6 +221,7 @@ export const fetchStudioPackages = createAsyncThunk<
 				packageServices,
 				studioRoomId: p.studio_room ?? "",
 				type: "package" as const,
+				package_name: p.package_name,
 			};
 		});
 	} catch {

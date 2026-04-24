@@ -206,7 +206,9 @@ function PackageCard({
 			)}
 
 			<div className='flex items-center gap-2 flex-wrap pr-6'>
-				<span className='font-bold text-gray-900 text-base'>{pkg.name}</span>
+				<span className='font-bold text-gray-900 text-base'>
+					{pkg.package_name}
+				</span>
 				{pkg.highlighted && (
 					<span className='text-xs font-medium px-2 py-0.5 rounded text-orange-500'>
 						Popular
@@ -338,12 +340,15 @@ export default function StudioDetailPage() {
 		selectedBundleId ?? (bundles.length > 0 ? bundles[0].id : null);
 
 	const [activeImage, setActiveImage] = useState(0);
+	const user = useAppSelector((state) => state.auth.user);
 
 	useEffect(() => {
-		if (servicesStatus === "idle") dispatch(fetchStudioServices());
-		if (packagesStatus === "idle") dispatch(fetchStudioPackages());
-		if (bundlesStatus === "idle") dispatch(fetchStudioBundles());
-	}, [servicesStatus, packagesStatus, bundlesStatus, dispatch]);
+		if (user) {
+			if (servicesStatus === "idle") dispatch(fetchStudioServices());
+			if (packagesStatus === "idle") dispatch(fetchStudioPackages());
+			if (bundlesStatus === "idle") dispatch(fetchStudioBundles());
+		}
+	}, [servicesStatus, packagesStatus, bundlesStatus, dispatch, user]);
 
 	const resolvedServiceId =
 		selectedServiceId ?? (services.length > 0 ? services[0].id : null);
@@ -370,11 +375,23 @@ export default function StudioDetailPage() {
 		packages.find((p) => p.id === selectedPackageId) ?? null;
 	const activeBundle = bundles.find((b) => b.id === selectedBundleId) ?? null;
 
+	// Use the resolved IDs to find the "Active" items for the UI
+	// const activeService = services.find(
+	// 	(s) => s.id === (selectedServiceId ?? resolvedServiceId),
+	// );
+	// const activePackage = packages.find(
+	// 	(p) => p.id === (selectedPackageId ?? resolvedPackageId),
+	// );
+	// const activeBundle = bundles.find(
+	// 	(b) => b.id === (selectedBundleId ?? resolvedBundleId),
+	// );
+
 	const displayPrice =
-		(selectionMode === "service" && activeService?.pricePerHour) ??
-		(selectionMode === "package" && activePackage?.price) ??
-		(selectionMode === "bundle" && activeBundle?.price) ??
-		initialPrice;
+		(selectionMode === "service" && activeService?.pricePerHour) ||
+		(selectionMode === "package" && activePackage?.price) ||
+		(selectionMode === "bundle" && activeBundle?.price) ||
+		initialPrice ||
+		0; // Fallback to 0 if everything else fails
 
 	const canContinue =
 		(selectionMode === "service" && selectedServiceId !== null) ||
@@ -647,7 +664,7 @@ export default function StudioDetailPage() {
 								<p className='font-bold text-gray-900'>
 									{activeService.name} —{" "}
 									<span className='text-red-600'>
-										₦{activeService.basePrice.toLocaleString()}
+										₦{activeService.pricePerHour.toLocaleString()}
 									</span>
 									<span className='text-xs text-gray-400 ml-1'>
 										· serviceId: {activeService.id}

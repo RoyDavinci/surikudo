@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../lib/redux/hooks";
-import { silentAdminLogin } from "../lib/redux/slices/authSlice";
+import { silentAdminLogin, ADMIN_EMAIL } from "../lib/redux/slices/authSlice";
 
 export default function AuthBootstrap({
 	children,
@@ -12,11 +12,17 @@ export default function AuthBootstrap({
 	const user = useAppSelector((s) => s.auth.user);
 
 	useEffect(() => {
-		// Only run if no user in Redux state (which was loaded from localStorage)
-		if (!user) {
+		const isNoUser = !user;
+		const isCurrentlyAdmin =
+			user?.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+		// Refresh/Login admin session if:
+		// 1. No one is logged in.
+		// 2. The person logged in is the admin (refreshing their session).
+		if (isNoUser || isCurrentlyAdmin) {
 			dispatch(silentAdminLogin());
 		}
-	}, [dispatch, user]);
+	}, [dispatch, user]); // Only run on mount
 
 	return <>{children}</>;
 }

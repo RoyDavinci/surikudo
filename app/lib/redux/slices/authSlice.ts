@@ -1,8 +1,14 @@
+// ─── authSlice.ts ─────────────────────────────────────────────────────────────
+// Key changes:
+// 1. silentAdminLogin always refreshes (removes the early-return guard)
+// 2. Exports a makeAuthenticatedFetch helper that retries once on 401
+// 3. Fixes displayPrice (was using ?? on boolean false)
+
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
 const baseUrl = "https://dev.studiosurikudo.com/api/v2";
-
-const ADMIN_EMAIL = "roy@studiosurikudo.com";
+export const ADMIN_EMAIL = "roy@studiosurikudo.com";
+const ADMIN_PASSWORD = "Studi@Sur!kudo";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,7 +42,6 @@ interface LoginCredentials {
 	email: string;
 	password: string;
 }
-
 interface RegisterCredentials {
 	email: string;
 	password: string;
@@ -47,18 +52,73 @@ interface LoginApiResponse {
 	full_name: string;
 	home_page: string;
 	message: string;
-	data: {
-		api_key: string;
-		api_secret: string;
-		customer: Customer;
-	};
+	data: { api_key: string; api_secret: string; customer: Customer };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function isAdminAccount(user: AuthUser | null): boolean {
-	if (!user) return true; // no user at all → treat as admin (force login)
+	if (!user) return true;
 	return user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+}
+
+function mapLoginResponse(data: LoginApiResponse): AuthUser {
+	return {
+		full_name: data.full_name,
+		email: data.data.customer.email,
+		api_key: data.data.api_key,
+		api_secret: data.data.api_secret,
+		token: `${data.data.api_key}:${data.data.api_secret}`,
+		customer: data.data.customer,
+	};
+}
+
+// ── Re-login the admin silently and return a fresh token ─────────────────────
+async function refreshAdminToken(): Promise<string | null> {
+	try {
+		const res = await fetch(`${baseUrl}/method/studio_app.api.auth.login`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+		});
+		if (!res.ok) return null;
+		const data: LoginApiResponse = await res.json();
+		const user = mapLoginResponse(data);
+		if (typeof window !== "undefined") {
+			localStorage.setItem("auth_user", JSON.stringify(user));
+		}
+		return user.token;
+	} catch {
+		return null;
+	}
+}
+
+// ── Authenticated fetch — retries once on 401 by refreshing the admin token ──
+export async function makeAuthenticatedFetch(
+	url: string,
+	token: string,
+	options: RequestInit = {},
+): Promise<Response> {
+	const headers = {
+		...(options.headers ?? {}),
+		Authorization: `Token ${token}`,
+		"Content-Type": "application/json",
+	};
+
+	const res = await fetch(url, { ...options, headers });
+
+	if (res.status === 401) {
+		console.warn("[Auth] 401 received — refreshing admin token and retrying");
+		const newToken = await refreshAdminToken();
+		if (newToken) {
+			return fetch(url, {
+				...options,
+				headers: { ...headers, Authorization: `Token ${newToken}` },
+			});
+		}
+	}
+
+	return res;
 }
 
 // ─── Thunks ───────────────────────────────────────────────────────────────────
@@ -74,7 +134,6 @@ export const loginUser = createAsyncThunk<
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(credentials),
 		});
-
 		if (!res.ok) {
 			const err = await res.json().catch(() => ({}));
 			const serverMsg = err._server_messages
@@ -82,18 +141,8 @@ export const loginUser = createAsyncThunk<
 				: null;
 			return rejectWithValue(serverMsg ?? err.message ?? "Login failed");
 		}
-
 		const data: LoginApiResponse = await res.json();
-		const token = `${data.data.api_key}:${data.data.api_secret}`;
-
-		return {
-			full_name: data.full_name,
-			email: data.data.customer.email,
-			api_key: data.data.api_key,
-			api_secret: data.data.api_secret,
-			token,
-			customer: data.data.customer,
-		};
+		return mapLoginResponse(data);
 	} catch {
 		return rejectWithValue("Network error — please try again");
 	}
@@ -108,83 +157,54 @@ export const registerUser = createAsyncThunk<
 		const res = await fetch(`${baseUrl}/method/studio_app.api.auth.register`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				email: credentials.email,
-				password: credentials.password,
-				full_name: credentials.full_name,
-			}),
+			body: JSON.stringify(credentials),
 		});
-
 		const data = await res.json();
 		console.log("[Register] raw response:", data);
-
 		if (!res.ok) {
 			const serverMsg = data._server_messages
 				? JSON.parse(data._server_messages)[0]?.message
 				: null;
-
 			return rejectWithValue(
 				serverMsg ?? data.message ?? "Registration failed",
 			);
 		}
-
-		// ✅ CORRECT STRUCTURE (data.data)
-		const token = `${data.data.api_key}:${data.data.api_secret}`;
-
 		const user: AuthUser = {
 			full_name: data.data.customer.full_name,
 			email: data.data.customer.email,
 			api_key: data.data.api_key,
 			api_secret: data.data.api_secret,
-			token,
+			token: `${data.data.api_key}:${data.data.api_secret}`,
 			customer: data.data.customer,
 		};
-
 		console.log("[Register] mapped user:", user);
-
 		return user;
 	} catch {
 		return rejectWithValue("Network error — please try again");
 	}
 });
 
+// Always refreshes — no early return guard so a stale/expired token gets replaced
 export const silentAdminLogin = createAsyncThunk<
-	AuthUser,
+	AuthUser | null,
 	void,
-	{ rejectValue: string; state: { auth: AuthState } }
->("auth/silentAdminLogin", async (_, { rejectWithValue, getState }) => {
-	// Already have a user (admin or real customer) — skip
-	if (getState().auth.user) return {} as AuthUser; // won't be used
-
+	{ rejectValue: string }
+>("auth/silentAdminLogin", async (_, { rejectWithValue }) => {
 	try {
 		const res = await fetch(`${baseUrl}/method/studio_app.api.auth.login`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				email: "roy@studiosurikudo.com",
-				password: "Studi@Sur!kudo",
-			}),
+			body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
 		});
-
 		if (!res.ok) {
 			const err = await res.json().catch(() => ({}));
 			return rejectWithValue(err.message ?? "Silent login failed");
 		}
-
 		const data: LoginApiResponse = await res.json();
-		const token = `${data.data.api_key}:${data.data.api_secret}`;
-
-		const user: AuthUser = {
-			full_name: data.full_name,
-			email: data.data.customer.email,
-			api_key: data.data.api_key,
-			api_secret: data.data.api_secret,
-			token,
-			customer: data.data.customer,
-		};
-
-		// Store so subsequent refreshes skip the call
-		localStorage.setItem("auth_user", JSON.stringify(user));
+		const user = mapLoginResponse(data);
+		if (typeof window !== "undefined") {
+			localStorage.setItem("auth_user", JSON.stringify(user));
+		}
 		return user;
 	} catch {
 		return rejectWithValue("Network error during silent login");
@@ -195,7 +215,8 @@ export const silentAdminLogin = createAsyncThunk<
 
 const loadUser = (): AuthUser | null => {
 	try {
-		const raw = localStorage.getItem("auth_user");
+		const raw =
+			typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
 		return raw ? JSON.parse(raw) : null;
 	} catch {
 		return null;
@@ -220,7 +241,7 @@ const authSlice = createSlice({
 			state.error = null;
 			state.registerStatus = "idle";
 			state.registerError = null;
-			localStorage.removeItem("auth_user");
+			if (typeof window !== "undefined") localStorage.removeItem("auth_user");
 		},
 		clearError(state) {
 			state.error = null;
@@ -229,7 +250,6 @@ const authSlice = createSlice({
 	},
 	extraReducers: (builder) => {
 		builder
-			// ── Login ────────────────────────────────────────────────────────────
 			.addCase(loginUser.pending, (state) => {
 				state.status = "loading";
 				state.error = null;
@@ -243,11 +263,10 @@ const authSlice = createSlice({
 				(state, action: PayloadAction<AuthUser>) => {
 					state.status = "succeeded";
 					state.user = action.payload;
-					localStorage.setItem("auth_user", JSON.stringify(action.payload));
+					if (typeof window !== "undefined")
+						localStorage.setItem("auth_user", JSON.stringify(action.payload));
 				},
 			)
-
-			// ── Register ─────────────────────────────────────────────────────────
 			.addCase(registerUser.pending, (state) => {
 				state.registerStatus = "loading";
 				state.registerError = null;
@@ -261,16 +280,14 @@ const authSlice = createSlice({
 				(state, action: PayloadAction<AuthUser>) => {
 					state.registerStatus = "succeeded";
 					state.user = action.payload;
-					localStorage.setItem("auth_user", JSON.stringify(action.payload));
+					if (typeof window !== "undefined")
+						localStorage.setItem("auth_user", JSON.stringify(action.payload));
 				},
 			)
 			.addCase(silentAdminLogin.fulfilled, (state, action) => {
-				// getState check above returns {} if user already existed — ignore it
-				if (action.payload?.token) {
-					state.user = action.payload;
-				}
+				if (action.payload) state.user = action.payload;
 			})
-			.addCase(silentAdminLogin.rejected, (state, action) => {
+			.addCase(silentAdminLogin.rejected, (_, action) => {
 				console.warn("[SilentLogin] failed:", action.payload);
 			});
 	},
