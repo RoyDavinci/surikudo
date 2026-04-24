@@ -353,7 +353,11 @@ function AddonsPageInner() {
 
 	// After payment initialized → save summary + redirect
 	useEffect(() => {
-		if (initPayStatus === "succeeded" && paystackUrl) {
+		if (
+			initPayStatus === "succeeded" &&
+			paystackUrl &&
+			typeof window !== "undefined"
+		) {
 			sessionStorage.setItem(
 				"bookingSummary",
 				JSON.stringify({
@@ -371,18 +375,22 @@ function AddonsPageInner() {
 					promo_code: promoCode || null,
 				}),
 			);
+
 			window.location.href = paystackUrl;
 		}
 	}, [
+		addons,
+		draftBookingId,
 		initPayStatus,
 		paystackUrl,
-		draftBookingId,
-		selection,
+		promoCode,
+		selectedAddonIds,
 		selectedDate,
 		selectedSlot,
-		addons,
-		selectedAddonIds,
-		promoCode,
+		selection?.durationHours,
+		selection?.name,
+		selection?.studioName,
+		selection?.unit,
 	]);
 
 	const handleApplyPromo = () => {
