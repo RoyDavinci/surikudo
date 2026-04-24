@@ -42,7 +42,7 @@ export default function About() {
 						Book a Session <span>→</span>
 					</Link>
 					<Link
-						href='/about'
+						href='studio'
 						className='text-gray-700 font-medium text-sm hover:text-gray-900 transition-colors underline underline-offset-4'
 					>
 						Learn more

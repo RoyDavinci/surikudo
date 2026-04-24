@@ -316,7 +316,7 @@ export default function StudioDetailPage() {
 	const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
 		null,
 	);
-	const [activeImage, setActiveImage] = useState(0);
+	const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
 
 	const {
 		services,
@@ -326,6 +326,12 @@ export default function StudioDetailPage() {
 		bundles,
 		bundlesStatus,
 	} = useAppSelector((state) => state.studio);
+
+	const resolvedBundleId =
+		selectedBundleId ?? (bundles.length > 0 ? bundles[0].id : null);
+
+	const activeBundle = bundles.find((b) => b.id === resolvedBundleId) ?? null;
+	const [activeImage, setActiveImage] = useState(0);
 
 	useEffect(() => {
 		if (servicesStatus === "idle") dispatch(fetchStudioServices());
@@ -360,7 +366,8 @@ export default function StudioDetailPage() {
 
 	const canContinue =
 		(selectionMode === "service" && activeService !== null) ||
-		(selectionMode === "package" && activePackage !== null);
+		(selectionMode === "package" && activePackage !== null) ||
+		(selectionMode === "bundle" && activeBundle !== null);
 
 	const handleContinue = () => {
 		if (selectionMode === "service" && activeService) {
@@ -390,6 +397,21 @@ export default function StudioDetailPage() {
 					studioRoomId: activePackage.studioRoomId || "ROOM-2602-0001",
 					studioName: activePackage.name,
 					durationHours: activePackage.durationHours,
+				}),
+			);
+		} else if (selectionMode === "bundle" && activeBundle) {
+			dispatch(
+				setSelection({
+					id: activeBundle.id,
+					name: activeBundle.name,
+					price: activeBundle.price,
+					unit: `${activeBundle.durationHours}h`,
+					type: "bundle",
+					serviceId: activeBundle.serviceId,
+					packageServices: activeBundle.packageServices,
+					studioRoomId: activeBundle.studioRoomId || "ROOM-2602-0001",
+					studioName: activeBundle.name,
+					durationHours: activeBundle.durationHours,
 				}),
 			);
 		}
@@ -583,18 +605,18 @@ export default function StudioDetailPage() {
 					<section>
 						<h2 className='text-2xl font-black text-gray-950 mb-2'>Bundles</h2>
 						<p className='text-sm text-gray-400 mb-6'>
-							Bundle booking is coming soon. Please use Services or Packages for
-							now.
+							Bundles combine multiple packages for groups or extended sessions.
 						</p>
-						{bundles.length > 0 && (
+						{bundles.length === 0 ? (
+							<p className='text-gray-400 text-sm'>No bundles available.</p>
+						) : (
 							<div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
 								{bundles.map((b) => (
 									<PackageCard
 										key={b.id}
 										pkg={b}
-										selected={false}
-										disabled
-										onSelect={() => {}}
+										selected={resolvedBundleId === b.id}
+										onSelect={() => setSelectedBundleId(b.id)}
 									/>
 								))}
 							</div>
@@ -628,6 +650,17 @@ export default function StudioDetailPage() {
 									</span>
 									<span className='text-xs text-gray-400 ml-1'>
 										· serviceId: {activePackage.serviceId}
+									</span>
+								</p>
+							)}
+							{selectionMode === "bundle" && activeBundle && (
+								<p className='font-bold text-gray-900'>
+									{activeBundle.name} —{" "}
+									<span className='text-red-600'>
+										₦{activeBundle.price.toLocaleString()}
+									</span>
+									<span className='text-xs text-gray-400 ml-1'>
+										· {activeBundle.durationHours}h
 									</span>
 								</p>
 							)}

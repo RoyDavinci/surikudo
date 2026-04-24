@@ -54,7 +54,7 @@ export default function Hero() {
 							Book a Session <span>→</span>
 						</Link>
 						<Link
-							href='/services'
+							href='/studio'
 							className='text-gray-700 font-medium text-sm hover:text-gray-900 transition-colors'
 						>
 							Explore Service

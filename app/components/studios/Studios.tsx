@@ -1,46 +1,20 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Logo from "../../../public/images/b0648d33c960e264e2183aa09cccdd064a30a6c7.png";
-const initialStudios = [
-	{
-		slug: "digital-production",
-		name: "Digital Production",
-		description:
-			"SSL Console recording suite. Up to 8 musician. Full mixing & mastering",
-		tags: ["SSL AWS 924", "Pro Tools HDX", "Neve 1073"],
-		price: "80$/hr",
-		emoji: "🎛️",
-	},
-	{
-		slug: "dolby-atmos",
-		name: "Dolby Atmos",
-		description:
-			"Certified 7.1.4 immersive mixing. Spatial audio for music, & film.",
-		tags: ["Dolby Certified", "7.1.4 setup"],
-		price: "120$/hr",
-		emoji: "🔊",
-	},
-	{
-		slug: "podcast-studio",
-		name: "Podcast Studio",
-		description:
-			"Acoustically treated. 4 hosts. Multitrack recording + live stream ready",
-		tags: ["4 hosts", "Livestream", "Multitrack"],
-		price: "50$/hr",
-		emoji: "🎙️",
-	},
-	{
-		slug: "photo-studio",
-		name: "Photo Studio",
-		description:
-			"Acoustically treated. 4 hosts. Multitrack recording + live stream ready",
-		tags: ["4 hosts", "Livestream", "Multitrack"],
-		price: "50$/hr",
-		emoji: "🎙️",
-	},
-];
+
+const BASE_URL = "https://dev.studiosurikudo.com/api/v2";
+
+interface Studio {
+	apiId: string; // e.g. "SERV-2602-0001"
+	slug: string; // derived from service_name
+	service_name: string;
+	description: string;
+	price: string;
+	tags: string[];
+}
 
 const features = [
 	{
@@ -65,11 +39,57 @@ const features = [
 	},
 ];
 
+function toSlug(name: string): string {
+	return name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/(^-|-$)/g, "");
+}
+
+function stripHtml(html: string): string {
+	return html?.replace(/<[^>]*>/g, "").trim() ?? "";
+}
+
+// ─── Skeleton Card ────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+	return (
+		<div className='border border-gray-100 rounded-xl overflow-hidden bg-white animate-pulse'>
+			{/* Image placeholder */}
+			<div className='h-44 w-full bg-gray-100' />
+			<div className='p-5 flex flex-col gap-3'>
+				{/* Title */}
+				<div className='h-5 bg-gray-100 rounded w-2/3' />
+				{/* Description lines */}
+				<div className='h-3 bg-gray-100 rounded w-full' />
+				<div className='h-3 bg-gray-100 rounded w-4/5' />
+				{/* Tags */}
+				<div className='flex gap-2'>
+					<div className='h-5 bg-gray-100 rounded w-16' />
+					<div className='h-5 bg-gray-100 rounded w-20' />
+					<div className='h-5 bg-gray-100 rounded w-14' />
+				</div>
+				{/* Footer */}
+				<div className='flex items-center justify-between pt-3 border-t border-gray-100'>
+					<div className='h-6 bg-gray-100 rounded w-24' />
+					<div className='h-8 bg-gray-100 rounded w-28' />
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function Studios() {
 	const ref = useRef<HTMLDivElement>(null);
-	const [studios, setStudios] = useState(initialStudios);
+	const [studios, setStudios] = useState<Studio[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
+	// Animate cards when they appear
 	useEffect(() => {
+		if (loading || studios.length === 0) return;
 		const cards = ref.current?.querySelectorAll(".studio-card");
 		if (!cards) return;
 		const observer = new IntersectionObserver(
@@ -82,12 +102,13 @@ export default function Studios() {
 		);
 		cards.forEach((c) => observer.observe(c));
 		return () => observer.disconnect();
-	}, []);
+	}, [loading, studios]);
 
 	useEffect(() => {
 		const fetchStudios = async () => {
 			try {
-				const baseUrl = "https://dev.studiosurikudo.com/api/v2";
+				setLoading(true);
+				setError(null);
 
 				const params = new URLSearchParams({
 					fields: JSON.stringify([
@@ -97,13 +118,14 @@ export default function Studios() {
 						"base_price",
 						"price_per_hour",
 						"duration",
+						"service_category",
 					]),
 					start: "0",
 					limit: "10",
 				});
 
-				const response = await fetch(
-					`${baseUrl}/document/Studio Service?${params.toString()}`,
+				const res = await fetch(
+					`${BASE_URL}/document/Studio Service?${params.toString()}`,
 					{
 						method: "GET",
 						headers: {
@@ -113,26 +135,31 @@ export default function Studios() {
 					},
 				);
 
-				const result = await response.json();
+				if (!res.ok) throw new Error("Failed to fetch studios");
 
-				console.log("result", result);
+				const result = await res.json();
 
-				// 🔥 Merge API data into existing UI
-				const updated = initialStudios.map((studio, index) => {
-					const apiItem = result.data[index];
-
-					if (!apiItem) return studio;
-
+				const mapped: Studio[] = (result.data ?? []).map((item: any) => {
+					const price = item.base_price || item.price_per_hour || 0;
 					return {
-						...studio,
-						name: apiItem.name,
-						price: `₦${apiItem.base_price.toLocaleString()}`, // formatted naira
+						apiId: item.name,
+						slug: toSlug(item.service_name ?? item.name),
+						service_name: item.service_name ?? item.name,
+						description: stripHtml(item.description ?? ""),
+						price: `₦${price.toLocaleString()}${item.price_per_hour ? "/hr" : ""}`,
+						tags: [
+							item.service_category,
+							item.duration ? `${item.duration}h` : null,
+						].filter(Boolean) as string[],
 					};
 				});
 
-				setStudios(updated);
-			} catch (error) {
-				console.error("Failed to fetch studios:", error);
+				setStudios(mapped);
+			} catch (err) {
+				console.error("Failed to fetch studios:", err);
+				setError("Could not load studios. Please try again.");
+			} finally {
+				setLoading(false);
 			}
 		};
 
@@ -148,66 +175,84 @@ export default function Studios() {
 						Choose Your Studio
 					</h2>
 					<p className='text-gray-500 text-lg'>
-						Three world-class experience, one seamless booking.
+						Three world-class experiences, one seamless booking.
 					</p>
 				</div>
 
-				{/* Studio Cards */}
-				<div
-					ref={ref}
-					className='max-w-6xl mx-auto px-4 md:px-6 lg:px-2 grid grid-cols-1 md:grid-cols-4 gap-6 mb-20'
-				>
-					{studios.map((studio, i) => (
-						<Link
-							key={studio.slug}
-							href={`/studios/${studio.slug}?id=${studio.name}`}
-							className='studio-card border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1 block'
-							style={{ animationDelay: `${i * 0.1}s` }}
+				{/* Error state */}
+				{error && (
+					<div className='text-center py-12'>
+						<p className='text-red-500 text-sm mb-4'>{error}</p>
+						<button
+							onClick={() => window.location.reload()}
+							className='text-xs font-semibold text-gray-500 border border-gray-200 px-4 py-2 rounded hover:border-gray-400 transition-colors'
 						>
-							{/* Image */}
-							<div className='relative h-44 w-full'>
-								<Image
-									src={Logo}
-									alt={studio.name}
-									fill
-									className='object-cover'
-									priority={i === 0}
-								/>
-							</div>
+							Retry
+						</button>
+					</div>
+				)}
 
-							<div className='p-5'>
-								<h3 className='font-bold text-gray-900 text-lg mb-1'>
-									{studio.name}
-								</h3>
+				{/* Studio Cards — skeleton while loading, real cards when done */}
+				{!error && (
+					<div
+						ref={ref}
+						className='max-w-6xl mx-auto px-4 md:px-6 lg:px-2 grid grid-cols-1 md:grid-cols-4 gap-6 mb-20'
+					>
+						{loading
+							? Array.from({ length: 4 }).map((_, i) => (
+									<SkeletonCard key={i} />
+								))
+							: studios.map((studio, i) => (
+									<Link
+										key={studio.apiId}
+										href={`/studios/${studio.slug}?id=${studio.apiId}`}
+										className='studio-card border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1 block'
+										style={{ animationDelay: `${i * 0.1}s` }}
+									>
+										{/* Image */}
+										<div className='relative h-44 w-full'>
+											<Image
+												src={Logo}
+												alt={studio.service_name}
+												fill
+												className='object-cover'
+												priority={i === 0}
+											/>
+										</div>
 
-								<p className='text-gray-500 text-sm mb-3 leading-relaxed'>
-									{studio.description}
-								</p>
+										<div className='p-5'>
+											<h3 className='font-bold text-gray-900 text-lg mb-1'>
+												{studio.service_name}
+											</h3>
 
-								<div className='flex flex-wrap gap-2 mb-4'>
-									{studio.tags.map((tag) => (
-										<span
-											key={tag}
-											className='text-xs text-gray-500 border border-gray-200 px-2 py-0.5 rounded'
-										>
-											{tag}
-										</span>
-									))}
-								</div>
+											<p className='text-gray-500 text-sm mb-3 leading-relaxed line-clamp-2'>
+												{studio.description || "World-class studio experience."}
+											</p>
 
-								<div className='flex items-center justify-between pt-3 border-t border-gray-100'>
-									<span className='text-xl font-bold text-gray-900'>
-										{studio.price}
-									</span>
+											<div className='flex flex-wrap gap-2 mb-4'>
+												{studio.tags.map((tag) => (
+													<span
+														key={tag}
+														className='text-xs text-gray-500 border border-gray-200 px-2 py-0.5 rounded'
+													>
+														{tag}
+													</span>
+												))}
+											</div>
 
-									<span className='border border-red-600 text-red-600 text-xs font-semibold px-3 py-1.5 hover:bg-red-600 hover:text-white transition-colors flex items-center gap-1'>
-										Book a session <span>→</span>
-									</span>
-								</div>
-							</div>
-						</Link>
-					))}
-				</div>
+											<div className='flex items-center justify-between pt-3 border-t border-gray-100'>
+												<span className='text-xl font-bold text-gray-900'>
+													{studio.price}
+												</span>
+												<span className='border border-red-600 text-red-600 text-xs font-semibold px-3 py-1.5 hover:bg-red-600 hover:text-white transition-colors flex items-center gap-1'>
+													Book a session <span>→</span>
+												</span>
+											</div>
+										</div>
+									</Link>
+								))}
+					</div>
+				)}
 
 				{/* Features Grid */}
 				<div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
@@ -268,8 +313,7 @@ export default function Studios() {
 					transition:
 						opacity 0.5s ease,
 						transform 0.5s ease,
-						box-shadow 0.3s ease,
-						translate 0.3s ease;
+						box-shadow 0.3s ease;
 				}
 				.card-visible {
 					opacity: 1;

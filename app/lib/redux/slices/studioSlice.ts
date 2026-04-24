@@ -72,25 +72,6 @@ function stripHtml(html: string): string {
 	return html.replace(/<[^>]*>/g, "").trim();
 }
 
-function parseFeatures(raw: any): string[] {
-	if (!raw) return [];
-	if (Array.isArray(raw)) {
-		return raw.map((r: any) => r.feature ?? r.description ?? String(r));
-	}
-	if (typeof raw === "string") {
-		try {
-			const parsed = JSON.parse(raw);
-			if (Array.isArray(parsed)) return parsed;
-		} catch {
-			return raw
-				.split(",")
-				.map((s: string) => s.trim())
-				.filter(Boolean);
-		}
-	}
-	return [];
-}
-
 function getToken(getState: () => unknown): string {
 	const state = getState() as { auth: { user: { token: string } | null } };
 	return state.auth.user?.token ?? "";
@@ -248,13 +229,24 @@ export const fetchStudioBundles = createAsyncThunk<
 >("studio/fetchBundles", async (_, { rejectWithValue, getState }) => {
 	try {
 		const token = getToken(getState);
+
 		const params = new URLSearchParams({
-			fields: JSON.stringify(["name", "bundle_name", "description", "price"]),
+			fields: JSON.stringify([
+				"name",
+				"bundle_name",
+				"description",
+				"bundle_price",
+				"total_duration",
+				"discount",
+				"is_active",
+				"packages", // child table — returns the packages[] array
+			]),
 			start: "0",
 			limit: "50",
 		});
+
 		const res = await fetch(
-			`${baseUrl}/api/v2/document/Studio Bundle?${params.toString()}`,
+			`${baseUrl}/api/v2/document/Service Bundle?${params.toString()}`,
 			{ headers: authHeaders(token) },
 		);
 
@@ -264,21 +256,33 @@ export const fetchStudioBundles = createAsyncThunk<
 		}
 
 		const data = await res.json();
-		return (data.data ?? []).map(
-			(b: any): StudioPackage => ({
+
+		return (data.data ?? []).map((b: any): StudioPackage => {
+			const bundlePackages: PackageServiceItem[] = (b.packages ?? []).map(
+				(item: any) => ({
+					service: item.package, // "PACK-2602-0001"
+					durationOverride: 0,
+					quantity: item.quantity ?? 1,
+					priceOverride: item.price_override ?? 0,
+				}),
+			);
+
+			const primaryServiceId = bundlePackages[0]?.service ?? "";
+
+			return {
 				id: b.name,
 				name: b.bundle_name ?? b.name,
 				description: stripHtml(b.description ?? ""),
-				price: b.price ?? 0,
-				durationHours: b.duration ?? 1,
-				features: parseFeatures(b.features),
-				highlighted: Boolean(b.is_highlighted),
-				serviceId: b.service ?? "",
-				packageServices: [],
+				price: b.bundle_price ?? 0,
+				durationHours: b.total_duration ?? 1,
+				features: bundlePackages.map((p) => `${p.service} × ${p.quantity}`),
+				highlighted: false,
+				serviceId: primaryServiceId,
+				packageServices: bundlePackages,
 				studioRoomId: b.studio_room ?? "",
 				type: "bundle" as const,
-			}),
-		);
+			};
+		});
 	} catch {
 		return rejectWithValue("Network error — please try again");
 	}
