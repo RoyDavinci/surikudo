@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -14,6 +15,8 @@ import {
 	StudioPackage,
 } from "../../lib/redux/slices/studioSlice";
 import { setSelection } from "../../lib/redux/slices/bookingFlowSlice";
+import Logo from "../../../public/images/b0648d33c960e264e2183aa09cccdd064a30a6c7.png";
+import Image, { StaticImageData } from "next/image";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,7 +28,7 @@ interface StudioMeta {
 	capacity: string;
 	rate: string;
 	gearHighlights: string[];
-	images: { src: string; alt: string }[];
+	images: { src: StaticImageData | string; alt: string }[]; // ← accept both
 }
 
 // Source - https://stackoverflow.com/a/51359101
@@ -50,9 +53,9 @@ const STUDIO_META: StudioMeta = {
 		"Dolby Atmos Ready",
 	],
 	images: [
-		{ src: "/images/studio-1.jpg", alt: "Control room" },
-		{ src: "/images/studio-2.jpg", alt: "Mixing console" },
-		{ src: "/images/studio-3.jpg", alt: "Isolation booth" },
+		{ src: Logo, alt: "Control room" },
+		{ src: Logo, alt: "Mixing console" },
+		{ src: Logo, alt: "Isolation booth" },
 	],
 };
 
@@ -336,11 +339,9 @@ export default function StudioDetailPage() {
 		bundlesStatus,
 	} = useAppSelector((state) => state.studio);
 
-	const resolvedBundleId =
-		selectedBundleId ?? (bundles.length > 0 ? bundles[0].id : null);
-
 	const [activeImage, setActiveImage] = useState(0);
 	const user = useAppSelector((state) => state.auth.user);
+	const studioId = searchParams.get("id") ?? "";
 
 	useEffect(() => {
 		if (user) {
@@ -350,6 +351,16 @@ export default function StudioDetailPage() {
 		}
 	}, [servicesStatus, packagesStatus, bundlesStatus, dispatch, user]);
 
+	useEffect(() => {
+		if (services.length > 0 && studioId && selectedServiceId === null) {
+			const match = services.find((s) => s.id === studioId);
+			if (match) {
+				setSelectedServiceId(match.id);
+				setSelectionMode("service");
+			}
+		}
+	}, [services, studioId, selectedServiceId]);
+
 	const resolvedServiceId =
 		selectedServiceId ?? (services.length > 0 ? services[0].id : null);
 
@@ -358,6 +369,9 @@ export default function StudioDetailPage() {
 		(packages.length > 0
 			? (packages.find((p) => p.highlighted) ?? packages[0])?.id
 			: null);
+
+	const resolvedBundleId =
+		selectedBundleId ?? (bundles.length > 0 ? bundles[0].id : null);
 
 	const isLoading =
 		servicesStatus === "loading" || packagesStatus === "loading";
@@ -482,11 +496,13 @@ export default function StudioDetailPage() {
 					{/* Images */}
 					<div className='flex flex-col gap-3'>
 						<div className='relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-gray-200'>
-							<div className='absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center'>
-								<span className='text-white/40 text-sm tracking-wide'>
-									{STUDIO_META.images[activeImage]?.alt}
-								</span>
-							</div>
+							<Image
+								src={STUDIO_META.images[activeImage].src}
+								alt={STUDIO_META.images[activeImage].alt}
+								fill
+								className='object-cover'
+								priority
+							/>
 						</div>
 						<div className='flex gap-2'>
 							{STUDIO_META.images.map((img, i) => (
@@ -499,7 +515,12 @@ export default function StudioDetailPage() {
 											: "border-transparent hover:border-gray-300"
 									}`}
 								>
-									<div className='absolute inset-0 bg-gradient-to-br from-gray-600 to-gray-800' />
+									<Image
+										src={img.src}
+										alt={img.alt}
+										fill
+										className='object-cover'
+									/>
 								</button>
 							))}
 						</div>
@@ -666,9 +687,9 @@ export default function StudioDetailPage() {
 									<span className='text-red-600'>
 										₦{activeService.pricePerHour.toLocaleString()}
 									</span>
-									<span className='text-xs text-gray-400 ml-1'>
+									{/* <span className='text-xs text-gray-400 ml-1'>
 										· serviceId: {activeService.id}
-									</span>
+									</span> */}
 								</p>
 							)}
 							{selectionMode === "package" && activePackage && (
@@ -677,9 +698,9 @@ export default function StudioDetailPage() {
 									<span className='text-red-600'>
 										₦{activePackage.price.toLocaleString()}
 									</span>
-									<span className='text-xs text-gray-400 ml-1'>
+									{/* <span className='text-xs text-gray-400 ml-1'>
 										· serviceId: {activePackage.serviceId}
-									</span>
+									</span> */}
 								</p>
 							)}
 							{selectionMode === "bundle" && activeBundle && (

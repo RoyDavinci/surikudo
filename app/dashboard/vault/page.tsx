@@ -114,7 +114,7 @@ export default function VaultPage() {
 		return matchesSearch;
 	});
 
-	const usedGB = 1.5;
+	const usedGB = 0;
 	const totalGB = 5;
 	const pct = (usedGB / totalGB) * 100;
 
@@ -203,7 +203,7 @@ export default function VaultPage() {
 			</div>
 
 			{/* Recent Content header */}
-			<div
+			{/* <div
 				style={{
 					display: "flex",
 					alignItems: "center",
@@ -215,7 +215,6 @@ export default function VaultPage() {
 					Recent Content
 				</h2>
 				<div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-					{/* Search */}
 					<div
 						style={{
 							display: "flex",
@@ -242,7 +241,6 @@ export default function VaultPage() {
 							}}
 						/>
 					</div>
-					{/* Filter tabs */}
 					<div style={{ display: "flex", gap: 2 }}>
 						{(["ALL", "UPCOMING", "PAST"] as FilterType[]).map((f) => (
 							<button
@@ -264,10 +262,9 @@ export default function VaultPage() {
 						))}
 					</div>
 				</div>
-			</div>
+			</div> */}
 
-			{/* File list */}
-			<div
+			{/* <div
 				style={{
 					background: "#fff",
 					border: "1px solid #eee",
@@ -289,7 +286,6 @@ export default function VaultPage() {
 								gap: 16,
 							}}
 						>
-							{/* Icon */}
 							<div
 								style={{
 									width: 44,
@@ -306,7 +302,6 @@ export default function VaultPage() {
 								<IconMusic />
 							</div>
 
-							{/* Info */}
 							<div style={{ flex: 1 }}>
 								<div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
 									{f.name}
@@ -327,7 +322,6 @@ export default function VaultPage() {
 								</div>
 							</div>
 
-							{/* Tag badge */}
 							<span
 								style={{
 									background: style.bg,
@@ -342,7 +336,6 @@ export default function VaultPage() {
 								• {tag}
 							</span>
 
-							{/* Play button */}
 							<button
 								style={{
 									display: "flex",
@@ -361,7 +354,6 @@ export default function VaultPage() {
 								Play <IconPlay />
 							</button>
 
-							{/* Download button */}
 							<button
 								style={{
 									background: "#e60000",
@@ -382,7 +374,7 @@ export default function VaultPage() {
 						</div>
 					);
 				})}
-			</div>
+			</div> */}
 		</div>
 	);
 }

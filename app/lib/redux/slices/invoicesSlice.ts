@@ -46,13 +46,14 @@ export const fetchInvoices = createAsyncThunk<
 		}
 
 		const data = await res.json();
+		console.log("data", data);
 		// Adjust mapping once you inspect the real response shape
-		return (data.message ?? []).map((inv: any) => ({
-			id: inv.name,
-			date: inv.posting_date,
-			desc: inv.description ?? inv.items?.[0]?.item_name ?? "-",
-			amount: `$${parseFloat(inv.grand_total ?? 0).toFixed(2)}`,
-			status: inv.status ?? "PAID",
+		return (data.data ?? []).map((inv: any) => ({
+			id: inv.name, // "INV-2604-0002"
+			date: inv.invoice_date, // "2026-04-25"  (was inv.posting_date — doesn't exist)
+			desc: inv.booking ?? "-", // "BOOK-2604-0030" (no description field in response)
+			amount: inv.total_amount, // 15000.0 as a number (format in the UI)
+			status: inv.status ?? "Issued", // "Issued"
 		}));
 	} catch {
 		return rejectWithValue("Network error — please try again");
@@ -84,14 +85,14 @@ export const fetchInvoiceById = createAsyncThunk<
 		}
 
 		const data = await res.json();
-		const inv = data.message;
-		return {
-			id: inv.name,
-			date: inv.posting_date,
-			desc: inv.description ?? inv.items?.[0]?.item_name ?? "-",
-			amount: `$${parseFloat(inv.grand_total ?? 0).toFixed(2)}`,
-			status: inv.status ?? "PAID",
-		};
+
+		return (data.data ?? []).map((inv: any) => ({
+			id: inv.name, // "INV-2604-0002"
+			date: inv.invoice_date, // "2026-04-25"  (was inv.posting_date — doesn't exist)
+			desc: inv.booking ?? "-", // "BOOK-2604-0030" (no description field in response)
+			amount: inv.total_amount, // 15000.0 as a number (format in the UI)
+			status: inv.status ?? "Issued", // "Issued"
+		}));
 	} catch {
 		return rejectWithValue("Network error — please try again");
 	}

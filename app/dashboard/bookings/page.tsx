@@ -154,28 +154,11 @@ export default function BookingsPage() {
 				<div className='flex justify-between items-center mb-6'>
 					<div>
 						<h2 className='text-base font-bold text-gray-900'>My Bookings</h2>
-						{!isLoading && (
+						{/* {!isLoading && (
 							<p className='text-xs text-gray-400 mt-0.5'>
 								{filtered.length} booking{filtered.length !== 1 ? "s" : ""}
 							</p>
-						)}
-					</div>
-					<div className='flex gap-1'>
-						{(["ALL", "UPCOMING", "PAID", "UNPAID"] as FilterType[]).map(
-							(f) => (
-								<button
-									key={f}
-									onClick={() => setFilter(f)}
-									className={`px-3 py-1.5 text-xs font-bold rounded transition-colors ${
-										filter === f
-											? "bg-red-600 text-white"
-											: "text-gray-400 hover:text-gray-700"
-									}`}
-								>
-									{f}
-								</button>
-							),
-						)}
+						)} */}
 					</div>
 				</div>
 

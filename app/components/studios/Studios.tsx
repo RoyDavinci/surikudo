@@ -139,6 +139,8 @@ export default function Studios() {
 
 				const result = await res.json();
 
+				console.log("result", result);
+
 				const mapped: Studio[] = (result.data ?? []).map((item: any) => {
 					const price = item.price_per_hour || 0;
 					return {
