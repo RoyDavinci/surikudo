@@ -119,7 +119,7 @@ export default function Testimonials() {
 							Get started
 						</Link>
 						<Link
-							href='/features'
+							href='/'
 							className='text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors'
 						>
 							Explore features
