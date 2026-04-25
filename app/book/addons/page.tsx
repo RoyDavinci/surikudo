@@ -631,7 +631,6 @@ function AddonsPageInner() {
 								</div>
 							</div>
 						</div>
-
 						{/* Date/time summary */}
 						{selectedDate && (
 							<div className='bg-white border border-gray-100 rounded-xl p-4 text-xs text-gray-500 flex flex-col gap-1.5'>
@@ -655,7 +654,6 @@ function AddonsPageInner() {
 								</div>
 							</div>
 						)}
-
 						{/* CTA */}
 						<button
 							onClick={handleConfirmAndPay}
@@ -668,13 +666,24 @@ function AddonsPageInner() {
 									? "Redirecting to payment…"
 									: `Confirm and Pay ₦${total} →`}
 						</button>
-
+						<button
+							onClick={() => {
+								const params = new URLSearchParams({
+									studioName: selection?.studioName ?? "",
+									packageName: selection?.name ?? "",
+									total: String(total),
+								});
+								router.push(`/book/gift?${params.toString()}`);
+							}}
+							className='w-full border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-500 font-semibold py-3 px-6 rounded text-sm transition-colors flex items-center justify-center gap-2'
+						>
+							🎁 Give as a Gift
+						</button>
 						{initPayError && (
 							<p className='text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3'>
 								{initPayError}
 							</p>
 						)}
-
 						<button
 							onClick={() => router.back()}
 							className='text-center text-sm text-gray-400 hover:text-gray-600'
