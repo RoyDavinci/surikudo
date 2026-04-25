@@ -8,7 +8,7 @@ const plans = [
 		annualPrice: 400,
 		description:
 			"A perfect starter package for those looking to refresh their space with expert guidance.",
-		currency: "€",
+		currency: "₦",
 		features: [
 			{ text: "Mood board creation", included: true },
 			{
@@ -34,7 +34,7 @@ const plans = [
 		annualPrice: 1200,
 		description:
 			"A perfect starter package for those looking to refresh their space with expert guidance.",
-		currency: "€",
+		currency: "₦",
 		features: [
 			{ text: "Two design revisions", included: true },
 			{ text: "Email support throughout the project", included: true },
@@ -60,7 +60,7 @@ const plans = [
 		annualPrice: 2400,
 		description:
 			"Our all-inclusive package for those seeking a luxurious, tailored design experience.",
-		currency: "€",
+		currency: "₦",
 		features: [
 			{ text: "Mood board creation", included: true },
 			{

@@ -237,7 +237,7 @@ export default function MembershipPage() {
 								>
 									{price.toLocaleString()}
 								</span>
-								<span style={{ fontSize: 16, color: "#888" }}>€</span>
+								<span style={{ fontSize: 16, color: "#888" }}>₦</span>
 								<span style={{ fontSize: 13, color: "#888" }}>/month</span>
 							</div>
 
