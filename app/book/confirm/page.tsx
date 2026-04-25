@@ -8,12 +8,184 @@ import {
 	resetFlow,
 } from "../../lib/redux/slices/bookingFlowSlice";
 
+// ── PDF Generator ────────────────────────────────────────────────────────────
+async function downloadReceipt(data: {
+	reference: string;
+	booking_id: string;
+	studio_name: string;
+	service_name: string;
+	start_datetime: string;
+	duration: number;
+	addons: string[];
+	promo_code: string | null;
+	total_amount?: number;
+}) {
+	const jsPDF = (await import("jspdf")).default;
+
+	const doc = new jsPDF({ unit: "pt", format: "a4" });
+	const W = doc.internal.pageSize.getWidth();
+	const H = doc.internal.pageSize.getHeight();
+
+	// ── Watermark (light red simulating transparency) ──────────────────────────
+	doc.setFont("helvetica", "bold");
+	doc.setFontSize(60);
+	doc.setTextColor(245, 180, 180); // very light red — simulates low opacity
+	// jsPDF text angle is set via the options object
+	doc.text("Studio Surikudo", W / 2, H / 2, {
+		align: "center",
+		angle: 45,
+		renderingMode: "fill",
+	});
+
+	// ── Header bar ─────────────────────────────────────────────────────────────
+	doc.setFillColor(220, 38, 38);
+	doc.rect(0, 0, W, 70, "F");
+
+	doc.setFont("helvetica", "bold");
+	doc.setFontSize(22);
+	doc.setTextColor(255, 255, 255);
+	doc.text("Studio Surikudo", 40, 38);
+
+	doc.setFont("helvetica", "normal");
+	doc.setFontSize(10);
+	doc.setTextColor(255, 200, 200);
+	doc.text("Booking Receipt", 40, 56);
+
+	// ── "Booking Confirmed" badge ──────────────────────────────────────────────
+	doc.setFillColor(240, 253, 244);
+	doc.roundedRect(W - 165, 18, 125, 28, 6, 6, "F");
+	doc.setFont("helvetica", "bold");
+	doc.setFontSize(9);
+	doc.setTextColor(22, 163, 74);
+	doc.text("✓  BOOKING CONFIRMED", W - 152, 36);
+
+	// ── Booking ID + Reference ─────────────────────────────────────────────────
+	let y = 110;
+	doc.setFont("helvetica", "bold");
+	doc.setFontSize(13);
+	doc.setTextColor(17, 24, 39);
+	doc.text("You're all set!", 40, y);
+
+	y += 18;
+	doc.setFont("courier", "normal");
+	doc.setFontSize(9);
+	doc.setTextColor(107, 114, 128);
+	doc.text(`Booking ID:   ${data.booking_id}`, 40, y);
+	y += 14;
+	doc.text(`Payment Ref:  ${data.reference}`, 40, y);
+
+	// ── Divider ────────────────────────────────────────────────────────────────
+	y += 20;
+	doc.setDrawColor(229, 231, 235);
+	doc.setLineWidth(0.5);
+	doc.line(40, y, W - 40, y);
+
+	// ── Details section ────────────────────────────────────────────────────────
+	y += 24;
+	doc.setFont("helvetica", "bold");
+	doc.setFontSize(10);
+	doc.setTextColor(220, 38, 38);
+	doc.text("BOOKING DETAILS", 40, y);
+
+	const [datePart, timePart] = (data.start_datetime ?? " ").split(" ");
+	const formattedDate = datePart
+		? new Date(datePart + "T00:00:00").toLocaleDateString("en-US", {
+				month: "long",
+				day: "numeric",
+				year: "numeric",
+			})
+		: "—";
+
+	const formatTime = (t: string) => {
+		if (!t) return "—";
+		const [hStr, mStr] = t.split(":");
+		let h = parseInt(hStr);
+		const meridiem = h >= 12 ? "PM" : "AM";
+		if (h === 0) h = 12;
+		else if (h > 12) h -= 12;
+		return `${h}:${mStr} ${meridiem}`;
+	};
+
+	const rows: [string, string][] = [
+		["Service", data.studio_name ?? "—"],
+		["Package", data.service_name ?? "—"],
+		["Date", formattedDate],
+		["Time", formatTime(timePart)],
+		["Duration", data.duration ? `${data.duration}h` : "—"],
+		["Add-ons", data.addons?.join(", ") || "None"],
+		["Promo Code", data.promo_code || "—"],
+		["Payment Ref", data.reference || "—"],
+	];
+
+	rows.forEach(([label, value], i) => {
+		y += 28;
+		const rowBg: [number, number, number] =
+			i % 2 === 0 ? [249, 250, 251] : [255, 255, 255];
+		doc.setFillColor(...rowBg);
+		doc.rect(40, y - 16, W - 80, 24, "F");
+
+		doc.setFont("helvetica", "normal");
+		doc.setFontSize(10);
+		doc.setTextColor(107, 114, 128);
+		doc.text(label, 52, y);
+
+		doc.setFont("helvetica", "bold");
+		doc.setTextColor(17, 24, 39);
+		doc.text(value, W - 52, y, { align: "right" });
+	});
+
+	// ── Total amount ───────────────────────────────────────────────────────────
+	if (data.total_amount !== undefined) {
+		y += 36;
+		doc.setFillColor(220, 38, 38);
+		doc.roundedRect(40, y - 18, W - 80, 36, 6, 6, "F");
+
+		doc.setFont("helvetica", "bold");
+		doc.setFontSize(11);
+		doc.setTextColor(255, 255, 255);
+		doc.text("Total Paid", 56, y);
+
+		const formatted = new Intl.NumberFormat("en-NG", {
+			style: "currency",
+			currency: "NGN",
+		}).format(data.total_amount / 100);
+		doc.text(formatted, W - 56, y, { align: "right" });
+	}
+
+	// ── Footer ─────────────────────────────────────────────────────────────────
+	y = H - 60;
+	doc.setDrawColor(229, 231, 235);
+	doc.line(40, y, W - 40, y);
+	y += 16;
+	doc.setFont("helvetica", "normal");
+	doc.setFontSize(8);
+	doc.setTextColor(156, 163, 175);
+	doc.text(
+		"Thank you for booking with Studio Surikudo. Please keep this receipt for your records.",
+		W / 2,
+		y,
+		{ align: "center" },
+	);
+	y += 12;
+	doc.text(
+		`Generated on ${new Date().toLocaleString("en-US", {
+			dateStyle: "long",
+			timeStyle: "short",
+		})}`,
+		W / 2,
+		y,
+		{ align: "center" },
+	);
+
+	doc.save(`receipt-${data.booking_id}.pdf`);
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 function BookingConfirmPage() {
 	const router = useRouter();
 	const dispatch = useAppDispatch();
 	const searchParams = useSearchParams();
 
-	// Paystack appends both; trxref is the canonical one
 	const reference =
 		searchParams.get("trxref") ?? searchParams.get("reference") ?? "";
 
@@ -21,7 +193,6 @@ function BookingConfirmPage() {
 		(state) => state.bookingFlow,
 	);
 
-	// On mount, verify if we have a reference and haven't verified yet
 	useEffect(() => {
 		if (reference && verifyStatus === "idle") {
 			dispatch(verifyPayment(reference));
@@ -33,7 +204,22 @@ function BookingConfirmPage() {
 		router.push("/dashboard/bookings");
 	};
 
-	// ── Loading ──────────────────────────────────────────────────────────────
+	const handleDownload = () => {
+		if (!verifiedBooking) return;
+		downloadReceipt({
+			reference,
+			booking_id: verifiedBooking.booking_id ?? "",
+			studio_name: verifiedBooking.studio_name ?? "",
+			service_name: verifiedBooking.service_name ?? "",
+			start_datetime: verifiedBooking.start_datetime ?? "",
+			duration: verifiedBooking.duration ?? 0,
+			addons: verifiedBooking.addons ?? [],
+			promo_code: verifiedBooking.promo_code ?? null,
+			total_amount: verifiedBooking.total_amount,
+		});
+	};
+
+	// ── Loading ────────────────────────────────────────────────────────────────
 	if (verifyStatus === "idle" || verifyStatus === "loading") {
 		return (
 			<main className='min-h-screen bg-gray-50 flex items-center justify-center flex-col gap-4'>
@@ -45,7 +231,7 @@ function BookingConfirmPage() {
 		);
 	}
 
-	// ── Error ────────────────────────────────────────────────────────────────
+	// ── Error ──────────────────────────────────────────────────────────────────
 	if (verifyStatus === "failed") {
 		return (
 			<main className='min-h-screen bg-gray-50 flex items-center justify-center flex-col gap-4 px-6 text-center'>
@@ -74,8 +260,7 @@ function BookingConfirmPage() {
 		);
 	}
 
-	// ── Success ──────────────────────────────────────────────────────────────
-	// Parse start_datetime "2026-04-18 09:00:00" into readable parts
+	// ── Success ────────────────────────────────────────────────────────────────
 	const [datePart, timePart] = (verifiedBooking?.start_datetime ?? " ").split(
 		" ",
 	);
@@ -87,7 +272,6 @@ function BookingConfirmPage() {
 			})
 		: "—";
 
-	// Format time "09:00:00" → "9:00 AM"
 	const formatTime = (t: string) => {
 		if (!t) return "—";
 		const [hStr, mStr] = t.split(":");
@@ -141,6 +325,12 @@ function BookingConfirmPage() {
 							ID: {verifiedBooking.booking_id}
 						</p>
 					)}
+					{/* ── Payment reference from URL ── */}
+					{reference && (
+						<p className='text-gray-400 text-xs font-mono mt-1'>
+							Ref: {reference}
+						</p>
+					)}
 				</div>
 
 				{/* Details */}
@@ -159,10 +349,11 @@ function BookingConfirmPage() {
 							},
 							{ label: "Add-ons", value: addonNames },
 							{ label: "Promo", value: verifiedBooking?.promo_code || "—" },
+							{ label: "Payment Ref", value: reference || "—" },
 						].map(({ label, value }) => (
 							<div key={label} className='flex justify-between items-start'>
 								<span className='text-gray-400'>{label}</span>
-								<span className='font-bold text-gray-900 text-right max-w-[60%]'>
+								<span className='font-bold text-gray-900 text-right max-w-[60%] font-mono text-xs leading-5'>
 									{value ?? "—"}
 								</span>
 							</div>
@@ -178,7 +369,7 @@ function BookingConfirmPage() {
 						View My Bookings →
 					</button>
 					<button
-						onClick={() => alert("Downloading receipt…")}
+						onClick={handleDownload}
 						className='flex-1 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-4 rounded text-sm transition-colors'
 					>
 						Download Receipt ↓
