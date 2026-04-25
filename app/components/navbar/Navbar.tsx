@@ -17,9 +17,18 @@ export default function Navbar() {
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const pathname = usePathname();
 
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	const user = useAppSelector((state) => state.auth.user);
-	const isSilentAdmin = user?.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-	const showDashboard = user && !isSilentAdmin;
+
+	const isSilentAdmin =
+		user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+	const showDashboard = Boolean(user) && !isSilentAdmin;
 
 	useEffect(() => {
 		const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -34,6 +43,7 @@ export default function Navbar() {
 
 	const isActive = (href: string) =>
 		href === "/" ? pathname === "/" : pathname.startsWith(href);
+	if (!mounted) return null;
 
 	return (
 		<nav
