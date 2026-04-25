@@ -17,14 +17,7 @@ import {
 	clearError,
 } from "../../lib/redux/slices/authSlice";
 
-const STUDIO_OPTIONS = ["Digital Room", "Dolby Room", "Podcast"];
-const PACKAGE_OPTIONS = [
-	{ label: "Starter $160", value: 160 },
-	{ label: "Pro $280", value: 280 },
-	{ label: "Full Day $2,080", value: 2080 },
-];
-
-// ── Reuse the same AuthModal from addons page ─────────────────────────────────
+// ── Auth Modal (same as addons) ───────────────────────────────────────────────
 function AuthModal({
 	onSuccess,
 	onClose,
@@ -68,15 +61,14 @@ function AuthModal({
 	}, [status, registerStatus, onSuccess]);
 
 	const isLoading = status === "loading" || registerStatus === "loading";
-	const sliceError = tab === "login" ? error : registerError;
-	const displayError = localErr || sliceError;
+	const displayError = localErr || (tab === "login" ? error : registerError);
 
 	return (
 		<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4'>
 			<div className='bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative'>
 				<button
 					onClick={onClose}
-					className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl leading-none font-light'
+					className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-light'
 				>
 					✕
 				</button>
@@ -96,9 +88,7 @@ function AuthModal({
 						<button
 							key={t}
 							onClick={() => switchTab(t)}
-							className={`flex-1 py-2 rounded-md text-sm font-semibold transition-all ${
-								tab === t ? "bg-white shadow text-gray-900" : "text-gray-500"
-							}`}
+							className={`flex-1 py-2 rounded-md text-sm font-semibold transition-all ${tab === t ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
 						>
 							{t === "login" ? "Log In" : "Register"}
 						</button>
@@ -131,7 +121,7 @@ function AuthModal({
 							onChange={(e) => setEmail(e.target.value)}
 							placeholder='your@email.com'
 							disabled={isLoading}
-							className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
+							className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
 						/>
 					</div>
 					{tab === "register" && (
@@ -146,7 +136,7 @@ function AuthModal({
 								onChange={(e) => setFullName(e.target.value)}
 								placeholder='Your Name'
 								disabled={isLoading}
-								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
+								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
 							/>
 						</div>
 					)}
@@ -162,7 +152,7 @@ function AuthModal({
 								onChange={(e) => setPass(e.target.value)}
 								placeholder='••••••••'
 								disabled={isLoading}
-								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50 pr-10 transition-colors'
+								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-red-400 disabled:opacity-50 pr-10 transition-colors'
 							/>
 							<button
 								type='button'
@@ -185,7 +175,7 @@ function AuthModal({
 								onChange={(e) => setConfirm(e.target.value)}
 								placeholder='••••••••'
 								disabled={isLoading}
-								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
+								className='w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-red-400 disabled:opacity-50 transition-colors'
 							/>
 						</div>
 					)}
@@ -215,8 +205,8 @@ function AuthModal({
 
 // ── Gift Page ─────────────────────────────────────────────────────────────────
 function GiftPage() {
-	const searchParams = useSearchParams();
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const dispatch = useAppDispatch();
 
 	const { user } = useAppSelector((s) => s.auth);
@@ -236,17 +226,16 @@ function GiftPage() {
 		paystackUrl,
 	} = useAppSelector((state) => state.bookingFlow);
 
-	const studioName = searchParams.get("studioName") ?? "Digital Room";
-	// const packageName = searchParams.get("packageName") ?? "";
-	const total = searchParams.get("total") ?? "0";
 	const backParams = searchParams.toString();
 
-	const initialPackage =
-		PACKAGE_OPTIONS.find((p) => p.value === Number(total)) ??
-		PACKAGE_OPTIONS[0];
+	// Compute totals (same logic as addons page)
+	const selectedAddons = addons.filter((a) => selectedAddonIds.includes(a.id));
+	const addonsTotal = selectedAddons.reduce((s, a) => s + a.price, 0);
+	const subtotal = (selection?.price ?? 0) + addonsTotal;
+	const discountAmount = Math.round(subtotal * promoDiscount);
+	const total = subtotal - discountAmount;
 
-	const [selectedStudio, setSelectedStudio] = useState(studioName);
-	const [selectedPackage, setSelectedPackage] = useState(initialPackage);
+	// Gift-specific fields
 	const [recipientName, setRecipientName] = useState("");
 	const [recipientEmail, setRecipientEmail] = useState("");
 	const [message, setMessage] = useState("");
@@ -274,32 +263,24 @@ function GiftPage() {
 		}
 	}, [createStatus, draftBookingId, initPayStatus, dispatch]);
 
-	// Save gift data to session then redirect to Paystack
+	// Save to session then redirect
 	useEffect(() => {
 		if (initPayStatus === "succeeded" && paystackUrl) {
-			const selectedAddons = addons.filter((a) =>
-				selectedAddonIds.includes(a.id),
-			);
-			const addonsTotal = selectedAddons.reduce((s, a) => s + a.price, 0);
-			const subtotal = (selection?.price ?? 0) + addonsTotal;
-			const discountAmount = Math.round(subtotal * promoDiscount);
-			const finalTotal = subtotal - discountAmount;
-
 			sessionStorage.setItem(
 				"bookingSummary",
 				JSON.stringify({
 					booking_id: draftBookingId,
-					studio_name: selection?.studioName ?? selectedStudio,
-					service_name: `${selection?.name ?? selectedPackage.label} (${selection?.unit ?? ""})`,
+					studio_name: selection?.studioName,
+					service_name: `${selection?.name} (${selection?.unit})`,
 					start_datetime:
 						selectedDate && selectedSlot
 							? `${selectedDate} ${selectedSlot.start_time}`
 							: "",
-					duration: selection?.durationHours ?? 0,
+					duration: selection?.durationHours,
 					addons: selectedAddons.map((a) => a.name),
 					promo_code: promoCode || null,
-					total_amount: finalTotal,
-					// Gift-specific data
+					total_amount: total,
+					// Gift fields
 					is_gift: true,
 					gift_recipient_name: recipientName,
 					gift_recipient_email: recipientEmail,
@@ -308,28 +289,9 @@ function GiftPage() {
 					gift_send_date: sendDate,
 				}),
 			);
-
 			window.location.href = paystackUrl;
 		}
-	}, [
-		initPayStatus,
-		paystackUrl,
-		addons,
-		selectedAddonIds,
-		promoCode,
-		promoDiscount,
-		selection,
-		draftBookingId,
-		selectedStudio,
-		selectedPackage,
-		selectedDate,
-		selectedSlot,
-		recipientName,
-		recipientEmail,
-		message,
-		senderName,
-		sendDate,
-	]);
+	}, [initPayStatus, paystackUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const handleConfirmAndPay = () => {
 		if (isAdminAccount(user)) {
@@ -343,6 +305,14 @@ function GiftPage() {
 		setShowAuthModal(false);
 		dispatch(createDraftBooking());
 	};
+
+	const formattedDate = selectedDate
+		? new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
+				month: "long",
+				day: "numeric",
+				year: "numeric",
+			})
+		: null;
 
 	return (
 		<main className='min-h-screen bg-gray-50'>
@@ -379,113 +349,85 @@ function GiftPage() {
 					Book as a gift 🎁
 				</h1>
 				<p className='text-gray-500 text-sm mb-10'>
-					Purchase as a gift for someone special. They&apos;ll receive a gift
-					code by email to schedule their session at their convenience.
+					Purchase this session as a gift. The recipient will receive a gift
+					code by email to schedule at their convenience.
 				</p>
 
 				<div className='grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8'>
-					{/* ── Left ── */}
-					<div className='flex flex-col gap-6'>
-						{/* Studio + package picker */}
-						<section className='bg-white border border-gray-200 rounded-xl p-6'>
-							<h2 className='font-bold text-gray-900 mb-4'>Studio Bundle</h2>
-							<div className='flex flex-wrap gap-2 mb-3'>
-								{STUDIO_OPTIONS.map((s) => (
-									<button
-										key={s}
-										onClick={() => setSelectedStudio(s)}
-										className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-all ${selectedStudio === s ? "border-red-600 text-red-600 bg-red-50" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}
-									>
-										{s}
-									</button>
-								))}
-							</div>
-							<div className='flex flex-wrap gap-2'>
-								{PACKAGE_OPTIONS.map((p) => (
-									<button
-										key={p.label}
-										onClick={() => setSelectedPackage(p)}
-										className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-all ${selectedPackage.value === p.value ? "border-red-600 text-red-600 bg-red-50" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}
-									>
-										{p.label}
-									</button>
-								))}
-							</div>
-						</section>
+					{/* ── Left — only gifter info ── */}
+					<section className='bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-5'>
+						<h2 className='font-bold text-gray-900'>Recipient Details</h2>
 
-						{/* Recipient details */}
-						<section className='bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-5'>
-							<h2 className='font-bold text-gray-900'>Recipient Details</h2>
-							{[
-								{
-									label: "Recipient Name",
-									value: recipientName,
-									set: setRecipientName,
-									type: "text",
-									placeholder: "e.g. Anny Andrea",
-									required: true,
-								},
-								{
-									label: "Recipient Email",
-									value: recipientEmail,
-									set: setRecipientEmail,
-									type: "email",
-									placeholder: "anny@email.com",
-									required: true,
-								},
-								{
-									label: "Your Name",
-									value: senderName,
-									set: setSenderName,
-									type: "text",
-									placeholder: "e.g. Roy Mathias",
-									required: false,
-								},
-							].map(({ label, value, set, type, placeholder, required }) => (
-								<div key={label}>
-									<label className='block text-sm text-gray-600 mb-1'>
-										{label}{" "}
-										{required && <span className='text-red-500'>*</span>}
-									</label>
-									<input
-										type={type}
-										value={value}
-										onChange={(e) => set(e.target.value)}
-										placeholder={placeholder}
-										className='w-full border-b border-gray-200 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 transition-colors bg-transparent'
-									/>
-								</div>
-							))}
-							<div>
+						{[
+							{
+								label: "Recipient Name",
+								value: recipientName,
+								set: setRecipientName,
+								type: "text",
+								placeholder: "e.g. Anny Andrea",
+								required: true,
+							},
+							{
+								label: "Recipient Email",
+								value: recipientEmail,
+								set: setRecipientEmail,
+								type: "email",
+								placeholder: "anny@email.com",
+								required: true,
+							},
+							{
+								label: "Your Name",
+								value: senderName,
+								set: setSenderName,
+								type: "text",
+								placeholder: "e.g. Roy Mathias",
+								required: false,
+							},
+						].map(({ label, value, set, type, placeholder, required }) => (
+							<div key={label}>
 								<label className='block text-sm text-gray-600 mb-1'>
-									Personal Message
+									{label} {required && <span className='text-red-500'>*</span>}
 								</label>
-								<textarea
-									value={message}
-									onChange={(e) => setMessage(e.target.value)}
-									placeholder='e.g. Happy Birthday! Enjoy your session at Surikudo'
-									rows={3}
-									className='w-full border-b border-gray-200 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 transition-colors bg-transparent resize-none'
+								<input
+									type={type}
+									value={value}
+									onChange={(e) => set(e.target.value)}
+									placeholder={placeholder}
+									className='w-full border-b border-gray-200 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 transition-colors bg-transparent'
 								/>
 							</div>
-							<div>
-								<label className='block text-sm text-gray-600 mb-1'>
-									Send Gift on
-								</label>
-								<div className='flex items-center justify-between border-b border-gray-200 py-2'>
-									<input
-										type='text'
-										value={sendDate}
-										onChange={(e) => setSendDate(e.target.value)}
-										className='flex-1 text-sm text-gray-900 focus:outline-none bg-transparent'
-									/>
-									<span className='text-red-600'>📅</span>
-								</div>
-							</div>
-						</section>
-					</div>
+						))}
 
-					{/* ── Right — Order Summary ── */}
+						<div>
+							<label className='block text-sm text-gray-600 mb-1'>
+								Personal Message
+							</label>
+							<textarea
+								value={message}
+								onChange={(e) => setMessage(e.target.value)}
+								placeholder='e.g. Happy Birthday! Enjoy your session at Surikudo'
+								rows={3}
+								className='w-full border-b border-gray-200 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 transition-colors bg-transparent resize-none'
+							/>
+						</div>
+
+						<div>
+							<label className='block text-sm text-gray-600 mb-1'>
+								Send Gift on
+							</label>
+							<div className='flex items-center justify-between border-b border-gray-200 py-2'>
+								<input
+									type='text'
+									value={sendDate}
+									onChange={(e) => setSendDate(e.target.value)}
+									className='flex-1 text-sm text-gray-900 focus:outline-none bg-transparent'
+								/>
+								<span className='text-red-600'>📅</span>
+							</div>
+						</div>
+					</section>
+
+					{/* ── Right — read-only order summary ── */}
 					<div className='flex flex-col gap-4'>
 						<div className='bg-white border border-gray-200 rounded-xl p-6'>
 							<h3 className='font-black text-gray-900 text-lg mb-5'>
@@ -498,21 +440,68 @@ function GiftPage() {
 										{recipientName || "—"}
 									</span>
 								</div>
+
+								<hr className='border-gray-100' />
+
 								<div className='flex justify-between'>
-									<span className='text-gray-500'>Studio</span>
-									<span className='font-bold text-gray-900'>
-										{selectedStudio} · {selectedPackage.label.split(" ")[0]}
+									<span className='text-gray-500'>{selection?.studioName}</span>
+									<span className='font-semibold'>
+										₦{selection?.price?.toLocaleString()}
 									</span>
 								</div>
+
+								{selectedAddons.map((a) => (
+									<div key={a.id} className='flex justify-between'>
+										<span className='text-gray-500'>{a.name} add-on</span>
+										<span className='font-semibold'>
+											₦{a.price.toLocaleString()}
+										</span>
+									</div>
+								))}
+
+								{promoCode && (
+									<div className='flex justify-between'>
+										<span className='text-green-600'>Promo ({promoCode})</span>
+										<span className='font-semibold text-green-600'>
+											-₦{discountAmount.toLocaleString()}
+										</span>
+									</div>
+								)}
+
 								<hr className='border-gray-100' />
+
 								<div className='flex justify-between'>
-									<span className='text-gray-700 font-semibold'>Total</span>
+									<span className='font-semibold text-gray-700'>Total</span>
 									<span className='font-black text-gray-900'>
-										${selectedPackage.value.toLocaleString()}
+										₦{total.toLocaleString()}
 									</span>
 								</div>
 							</div>
 						</div>
+
+						{/* Date/time read-only summary */}
+						{selectedDate && (
+							<div className='bg-white border border-gray-100 rounded-xl p-4 text-xs text-gray-500 flex flex-col gap-1.5'>
+								<div className='flex justify-between'>
+									<span>Date</span>
+									<span className='font-semibold text-gray-700'>
+										{formattedDate}
+									</span>
+								</div>
+								<div className='flex justify-between'>
+									<span>Time</span>
+									<span className='font-semibold text-red-600'>
+										{selectedSlot?.label}
+									</span>
+								</div>
+								<div className='flex justify-between'>
+									<span>Duration</span>
+									<span className='font-semibold text-gray-700'>
+										{selection?.unit}
+									</span>
+								</div>
+							</div>
+						)}
 
 						{createError && (
 							<p className='text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3'>
@@ -534,7 +523,7 @@ function GiftPage() {
 								? "Creating booking…"
 								: initPayStatus === "loading"
 									? "Redirecting to payment…"
-									: `Confirm and Pay $${selectedPackage.value.toLocaleString()} →`}
+									: `Confirm and Pay ₦${total.toLocaleString()} →`}
 						</button>
 
 						<Link
