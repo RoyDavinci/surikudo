@@ -74,10 +74,10 @@ function stripHtml(html: string): string {
 	return html.replace(/<[^>]*>/g, "").trim();
 }
 
-function getToken(getState: () => unknown): string {
-	const state = getState() as { auth: { user: { token: string } | null } };
-	return state.auth.user?.token ?? "";
-}
+// function getToken(getState: () => unknown): string {
+// 	const state = getState() as { auth: { user: { token: string } | null } };
+// 	return state.auth.user?.token ?? "";
+// }
 
 // ─── Thunks ───────────────────────────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ export const fetchStudioServices = createAsyncThunk<
 	StudioService[],
 	void,
 	{ rejectValue: string }
->("studio/fetchServices", async (_, { rejectWithValue, getState }) => {
+>("studio/fetchServices", async (_, { rejectWithValue }) => {
 	try {
 		const params = new URLSearchParams({
 			fields: JSON.stringify([
@@ -104,7 +104,7 @@ export const fetchStudioServices = createAsyncThunk<
 			limit: "50",
 		});
 
-		const token = getToken(getState);
+		const token = "ab7528f977f3a64:bfa2f842eca1082";
 		const url = `${baseUrl}/api/v2/document/Studio Service?${params.toString()}`;
 		const red = await makeAuthenticatedFetch(url, token);
 
@@ -145,9 +145,9 @@ export const fetchStudioPackages = createAsyncThunk<
 	StudioPackage[],
 	void,
 	{ rejectValue: string }
->("studio/fetchPackages", async (_, { rejectWithValue, getState }) => {
+>("studio/fetchPackages", async (_, { rejectWithValue }) => {
 	try {
-		const token = getToken(getState);
+		const token = "ab7528f977f3a64:bfa2f842eca1082";
 
 		// Step 1 — get list
 		const listParams = new URLSearchParams({
@@ -233,9 +233,9 @@ export const fetchStudioBundles = createAsyncThunk<
 	StudioPackage[],
 	void,
 	{ rejectValue: string }
->("studio/fetchBundles", async (_, { rejectWithValue, getState }) => {
+>("studio/fetchBundles", async (_, { rejectWithValue }) => {
 	try {
-		const token = getToken(getState);
+		const token = "ab7528f977f3a64:bfa2f842eca1082";
 
 		const params = new URLSearchParams({
 			fields: JSON.stringify([

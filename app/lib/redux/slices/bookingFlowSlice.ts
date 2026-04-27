@@ -80,6 +80,7 @@ export interface BookingFlowState {
 	verifyStatus: "idle" | "loading" | "succeeded" | "failed";
 	verifyError: string | null;
 	verifiedBooking: VerifiedBooking | null;
+	selectedDuration: number | null;
 }
 
 // ─── Thunks ───────────────────────────────────────────────────────────────────
@@ -90,12 +91,9 @@ export const fetchAvailableSlots = createAsyncThunk<
 	{ rejectValue: string }
 >(
 	"bookingFlow/fetchSlots",
-	async ({ studioRoomId, date }, { rejectWithValue, getState }) => {
+	async ({ studioRoomId, date }, { rejectWithValue }) => {
 		try {
-			const { auth } = getState() as {
-				auth: { user: { token: string } | null };
-			};
-			const token = auth.user?.token ?? "";
+			const token = "ab7528f977f3a64:bfa2f842eca1082";
 
 			const res = await fetch(
 				`${baseUrl}/api/v2/method/studio_app.api.availability.get_available_slots?studio_room=${studioRoomId}&date=${date}`,
@@ -135,7 +133,7 @@ export const fetchAddons = createAsyncThunk<
 		const { auth } = getState() as {
 			auth: { user: { token: string } | null };
 		};
-		const token = auth.user?.token ?? "";
+		const token = "ab7528f977f3a64:bfa2f842eca1082";
 
 		const params = new URLSearchParams({
 			fields: JSON.stringify([
@@ -162,6 +160,8 @@ export const fetchAddons = createAsyncThunk<
 
 		const data = await res.json();
 		const raw: any[] = data.data ?? [];
+
+		console.log("addons", data);
 
 		return raw.map((a: any) => ({
 			id: a.name,
@@ -204,6 +204,9 @@ export const createDraftBooking = createAsyncThunk<
 			duration: selection.durationHours,
 			start_datetime,
 			addons: selectedAddons,
+			...(state.bookingFlow.promoCode
+				? { discount_code: state.bookingFlow.promoCode }
+				: {}),
 		};
 
 		// ── Save booking summary to sessionStorage so confirm page can read it
@@ -214,7 +217,9 @@ export const createDraftBooking = createAsyncThunk<
 			start_datetime,
 			duration: selection.durationHours,
 			addons: selectedAddons.map((a) => a.addon),
-			promo_code: null,
+			promo_code: state.bookingFlow.promoCode
+				? state.bookingFlow.promoCode
+				: null,
 		};
 		try {
 			sessionStorage.setItem("bookingSummary", JSON.stringify(summary));
@@ -411,6 +416,7 @@ const initialState: BookingFlowState = {
 	verifyStatus: "idle",
 	verifyError: null,
 	verifiedBooking: null,
+	selectedDuration: null,
 };
 
 // ─── Slice ────────────────────────────────────────────────────────────────────
@@ -429,6 +435,7 @@ const bookingFlowSlice = createSlice({
 			state.draftBookingId = null;
 			state.createStatus = "idle";
 			state.submitStatus = "idle";
+			state.selectedDuration = null;
 		},
 		setDate(state, action: PayloadAction<string>) {
 			state.selectedDate = action.payload;
@@ -461,6 +468,9 @@ const bookingFlowSlice = createSlice({
 				/* ignore */
 			}
 			return initialState;
+		},
+		setDuration(state, action: PayloadAction<number>) {
+			state.selectedDuration = action.payload;
 		},
 	},
 	extraReducers: (builder) => {
@@ -562,6 +572,7 @@ export const {
 	clearPromo,
 	setSpecialNote,
 	resetFlow,
+	setDuration,
 } = bookingFlowSlice.actions;
 
 export default bookingFlowSlice.reducer;

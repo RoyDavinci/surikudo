@@ -22,11 +22,6 @@ import {
 	clearError,
 } from "../../lib/redux/slices/authSlice";
 
-const VALID_PROMO_CODES: Record<string, number> = {
-	SURIKUDO20: 0.2,
-	STUDIO10: 0.1,
-};
-
 function stripHtml(html: string) {
 	if (typeof window === "undefined") return html;
 	const doc = new DOMParser().parseFromString(html, "text/html");
@@ -319,14 +314,16 @@ function AddonsPageInner() {
 		draftBookingId,
 		createStatus,
 		createError,
-		submitStatus,
 		submitError,
 		paystackUrl,
 		initPayStatus,
 		initPayError,
 	} = useAppSelector((state) => state.bookingFlow);
 
+	const baseUrl = "https://dev.studiosurikudo.com/api/v2";
+
 	const { user } = useAppSelector((s) => s.auth);
+	const [promoLoading, setPromoLoading] = useState(false);
 
 	// Whether to show the auth gate modal
 	const [showAuthModal, setShowAuthModal] = useState(false);
@@ -396,14 +393,57 @@ function AddonsPageInner() {
 		selection?.unit,
 	]);
 
-	const handleApplyPromo = () => {
-		const discount = VALID_PROMO_CODES[promoInput.toUpperCase()];
-		if (discount) {
-			dispatch(setPromo({ code: promoInput.toUpperCase(), discount }));
+	const handleApplyPromo = async () => {
+		if (!promoInput.trim()) return;
+
+		setPromoLoading(true);
+		setPromoStatus("idle");
+		dispatch(clearPromo());
+
+		try {
+			const res = await fetch(
+				`${baseUrl}/method/studio_app.api.bookings.validate_discount_code`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: "Token ab7528f977f3a64:bfa2f842eca1082",
+					},
+					body: JSON.stringify({
+						code: promoInput.trim().toUpperCase(),
+						subtotal,
+					}),
+				},
+			);
+
+			const data = await res.json();
+			console.log("promos", data);
+
+			// Frappe method endpoints return data inside data.message
+			const result = data.data;
+
+			if (!res.ok || result.valid === false) {
+				setPromoStatus("invalid");
+				dispatch(clearPromo());
+				return;
+			}
+
+			const discountPercent =
+				result.discount_percentage ??
+				(result.discount_amount ? result.discount_amount / subtotal : 0);
+
+			dispatch(
+				setPromo({
+					code: promoInput.trim().toUpperCase(),
+					discount: discountPercent,
+				}),
+			);
 			setPromoStatus("valid");
-		} else {
+		} catch {
 			setPromoStatus("invalid");
 			dispatch(clearPromo());
+		} finally {
+			setPromoLoading(false);
 		}
 	};
 
@@ -553,26 +593,55 @@ function AddonsPageInner() {
 										setPromoInput(e.target.value);
 										setPromoStatus("idle");
 									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter") handleApplyPromo();
+									}}
 									placeholder='Enter promo code'
-									className='flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400'
+									disabled={promoLoading}
+									className='flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-red-400 disabled:opacity-50'
 								/>
 								<button
 									onClick={handleApplyPromo}
-									className='bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm'
+									disabled={promoLoading || !promoInput.trim()}
+									className='bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors min-w-[80px]'
 								>
-									Apply
+									{promoLoading ? (
+										<span className='inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+									) : (
+										"Apply"
+									)}
 								</button>
 							</div>
+
 							{promoStatus === "valid" && (
-								<p className='mt-2 text-xs text-green-600'>
-									✓ Code valid — {Math.round(promoDiscount * 100)}% discount
-									applied
+								<p className='mt-2 text-xs text-green-600 flex items-center gap-1'>
+									✓ Code applied — {Math.round(promoDiscount * 100)}% off (−₦
+									{discountAmount.toLocaleString()})
 								</p>
 							)}
 							{promoStatus === "invalid" && (
 								<p className='mt-2 text-xs text-red-500'>
-									✕ Invalid promo code
+									✕ Invalid or expired promo code
 								</p>
+							)}
+
+							{/* Show applied code with remove option */}
+							{promoCode && promoStatus === "valid" && (
+								<div className='mt-2 flex items-center gap-2'>
+									<span className='text-xs bg-green-50 border border-green-200 text-green-700 px-2 py-1 rounded font-mono'>
+										{promoCode}
+									</span>
+									<button
+										onClick={() => {
+											dispatch(clearPromo());
+											setPromoInput("");
+											setPromoStatus("idle");
+										}}
+										className='text-xs text-gray-400 hover:text-red-500 transition-colors'
+									>
+										Remove
+									</button>
+								</div>
 							)}
 						</section>
 

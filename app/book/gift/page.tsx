@@ -90,7 +90,7 @@ function AuthModal({
 							onClick={() => switchTab(t)}
 							className={`flex-1 py-2 rounded-md text-sm font-semibold transition-all ${tab === t ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
 						>
-							{t === "login" ? "Log In" : "Register"}
+							{t === "login" ? "Log In" : "SignUp"}
 						</button>
 					))}
 				</div>
