@@ -28,6 +28,7 @@ export interface AuthUser {
 	api_secret: string;
 	token: string;
 	customer: Customer;
+	loginAt?: number;
 }
 
 export interface AuthState {
@@ -263,8 +264,15 @@ const authSlice = createSlice({
 				(state, action: PayloadAction<AuthUser>) => {
 					state.status = "succeeded";
 					state.user = action.payload;
-					if (typeof window !== "undefined")
-						localStorage.setItem("auth_user", JSON.stringify(action.payload));
+					if (typeof window !== "undefined") {
+						const payload = {
+							...action.payload,
+							loginAt: Date.now(),
+						};
+
+						localStorage.setItem("auth_user", JSON.stringify(payload));
+						state.user = payload;
+					}
 				},
 			)
 			.addCase(registerUser.pending, (state) => {
@@ -280,8 +288,15 @@ const authSlice = createSlice({
 				(state, action: PayloadAction<AuthUser>) => {
 					state.registerStatus = "succeeded";
 					state.user = action.payload;
-					if (typeof window !== "undefined")
-						localStorage.setItem("auth_user", JSON.stringify(action.payload));
+					if (typeof window !== "undefined") {
+						const payload = {
+							...action.payload,
+							loginAt: Date.now(),
+						};
+
+						localStorage.setItem("auth_user", JSON.stringify(payload));
+						state.user = payload;
+					}
 				},
 			)
 			.addCase(silentAdminLogin.fulfilled, (state, action) => {

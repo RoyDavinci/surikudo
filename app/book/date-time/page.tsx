@@ -362,6 +362,8 @@ function DateTimePage() {
 
 	const handleContinue = () => {
 		if (!canContinue) return;
+		dispatch(setDate(selectedDate));
+		dispatch(setSlot(selectedSlot));
 
 		// If duration changed, update selection price before navigating
 		if (isHourly && activeDuration !== baseDuration) {
@@ -374,6 +376,7 @@ function DateTimePage() {
 				}),
 			);
 		}
+		console.log(selection);
 
 		router.push("/book/addons");
 	};

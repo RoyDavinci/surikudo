@@ -393,6 +393,12 @@ function AddonsPageInner() {
 		selection?.unit,
 	]);
 
+	useEffect(() => {
+		if (createStatus === "failed" && createError === "UNAUTHORIZED") {
+			setShowAuthModal(true);
+		}
+	}, [createStatus, createError]);
+
 	const handleApplyPromo = async () => {
 		if (!promoInput.trim()) return;
 
@@ -458,6 +464,8 @@ function AddonsPageInner() {
 		// Real user already logged in — proceed directly
 		proceedToPayment();
 	};
+
+	console.log(selection);
 
 	// Called after successful auth (or if already a real user)
 	const proceedToPayment = () => {

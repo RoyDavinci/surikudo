@@ -189,6 +189,8 @@ export const createDraftBooking = createAsyncThunk<
 		const { selection, selectedDate, selectedSlot, selectedAddonIds, addons } =
 			state.bookingFlow;
 
+		console.log("check", selectedDate, selectedSlot);
+
 		if (!selection || !selectedDate || !selectedSlot) {
 			return rejectWithValue("Missing booking details");
 		}
@@ -237,11 +239,24 @@ export const createDraftBooking = createAsyncThunk<
 		);
 
 		if (!res.ok) {
+			if (res.status === 401) {
+				return rejectWithValue("UNAUTHORIZED");
+			}
+
 			const err = await res.json().catch(() => ({}));
+
 			return rejectWithValue(err.message ?? "Failed to create booking");
 		}
 
 		const data = await res.json();
+		const isAuthError =
+			res.status === 401 ||
+			data?.errors?.some((e: any) => e?.type === "AuthenticationError");
+
+		if (isAuthError) {
+			return rejectWithValue("UNAUTHORIZED");
+		}
+
 		return data.data?.booking ?? data.message?.name ?? "";
 	} catch {
 		return rejectWithValue("Network error — please try again");
